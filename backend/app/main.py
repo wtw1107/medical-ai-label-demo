@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
@@ -14,6 +15,14 @@ app = FastAPI(
     title="Medical AI Label Demo Backend",
     version="0.1.0",
     description="Backend skeleton for the local medical image AI-assisted labeling demo.",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.mount("/media", StaticFiles(directory=str(settings.data_root)), name="media")
