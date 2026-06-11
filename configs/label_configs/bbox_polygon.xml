@@ -1,21 +1,21 @@
 <View>
   <Image name="image" value="$image" zoom="true" zoomControl="true" rotateControl="true" />
 
-  <Header value="Detection bbox" />
+  <Header value="病灶检测框" />
   <RectangleLabels name="bbox" toName="image">
-    <Label value="Lesion" background="#21C7C4" />
+    <Label value="病灶" background="#21C7C4" />
   </RectangleLabels>
 
-  <Header value="Segmentation polygon" />
+  <Header value="病灶分割轮廓" />
   <PolygonLabels name="lesion_polygon" toName="image">
-    <Label value="Lesion contour" background="#FBBF24" />
+    <Label value="病灶" background="#FBBF24" />
   </PolygonLabels>
 
   <Choices name="review_status" toName="image" choice="single">
-    <Choice value="Approved" />
-    <Choice value="Needs review" />
-    <Choice value="Cannot judge" />
+    <Choice value="通过" />
+    <Choice value="需要复核" />
+    <Choice value="无法判断" />
   </Choices>
 
-  <TextArea name="review_comment" toName="image" placeholder="Add review notes here" />
+  <TextArea name="review_comment" toName="image" placeholder="填写审核意见" />
 </View>

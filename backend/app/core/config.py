@@ -5,6 +5,8 @@ from re import match
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.constants import TaskType
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -38,6 +40,18 @@ class Settings(BaseSettings):
                 resolved_path = (self.project_root / raw_path).resolve()
                 return f"sqlite:///{resolved_path.as_posix()}"
         return self.database_url
+
+    def get_label_config_path(self, task_type: str) -> Path:
+        config_dir = self.project_root / "configs" / "label_configs"
+        mapping = {
+            TaskType.BBOX.value: config_dir / "bbox.xml",
+            TaskType.POLYGON.value: config_dir / "polygon.xml",
+            TaskType.BBOX_POLYGON.value: config_dir / "bbox_polygon.xml",
+        }
+        try:
+            return mapping[task_type]
+        except KeyError as exc:
+            raise ValueError(f"Unsupported task_type: {task_type}") from exc
 
 
 @lru_cache

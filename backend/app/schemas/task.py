@@ -22,5 +22,18 @@ class AnnotationTaskRead(AnnotationTaskBase):
 
     id: str
     label_studio_project_id: int | None = None
+    label_studio_project_url: str | None = None
     status: str
     error_message: str | None = None
+
+
+class AnnotationTaskCreateResponse(BaseModel):
+    task_id: str
+    dataset_id: str
+    label_studio_project_id: int
+    label_studio_project_url: str
+    status: str
+
+
+class AnnotationTaskUrlResponse(BaseModel):
+    url: str

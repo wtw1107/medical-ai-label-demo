@@ -98,6 +98,7 @@ class AnnotationTask(Base, TimestampMixin):
     seg_model_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     require_human_confirm: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     label_studio_project_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    label_studio_project_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     status: Mapped[str] = mapped_column(
         String(32),
         default=AnnotationTaskStatus.CREATED.value,
