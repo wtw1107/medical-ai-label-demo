@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.constants import ExportFormat, ExportRange
 
 
 class ExportRecordBase(BaseModel):
@@ -25,3 +27,17 @@ class ExportRecordRead(ExportRecordBase):
     error_message: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+
+
+class ExportRequest(BaseModel):
+    format: str = Field(default=ExportFormat.SIMPLE_JSON.value)
+    range: str = Field(default=ExportRange.CONFIRMED_ONLY.value)
+
+
+class ExportResponse(BaseModel):
+    export_id: str
+    task_id: str
+    format: str
+    status: str
+    file_path: str
+    download_url: str
