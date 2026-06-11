@@ -53,6 +53,15 @@ class Settings(BaseSettings):
         except KeyError as exc:
             raise ValueError(f"Unsupported task_type: {task_type}") from exc
 
+    def get_default_model_id(self, task_type: str) -> str:
+        if task_type == TaskType.BBOX.value:
+            return "mock_detection"
+        if task_type == TaskType.POLYGON.value:
+            return "mock_segmentation"
+        if task_type == TaskType.BBOX_POLYGON.value:
+            return "mock_detection"
+        raise ValueError(f"Unsupported task_type: {task_type}")
+
 
 @lru_cache
 def get_settings() -> Settings:

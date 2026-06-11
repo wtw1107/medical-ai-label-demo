@@ -73,6 +73,7 @@ class ImageItem(Base, TimestampMixin):
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     file_path: Mapped[str] = mapped_column(String(512), nullable=False)
     file_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    label_studio_task_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     width: Mapped[int | None] = mapped_column(Integer, nullable=True)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default=ImageStatus.UPLOADED.value, nullable=False)

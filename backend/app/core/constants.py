@@ -33,6 +33,12 @@ class PrelabelJobStatus(StrEnum):
     PARTIAL_FAILED = "partial_failed"
 
 
+class LabelStudioFieldName(StrEnum):
+    IMAGE = "image"
+    BBOX = "bbox"
+    LESION_POLYGON = "lesion_polygon"
+
+
 class ExportRecordStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"

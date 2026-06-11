@@ -23,3 +23,35 @@ class PrelabelJobRead(PrelabelJobBase):
     error_message: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+
+
+class PrelabelRunResponse(BaseModel):
+    job_id: str
+    task_id: str
+    status: str
+    total_count: int
+    success_count: int
+    failed_count: int
+
+
+class PrelabelJobStatusResponse(BaseModel):
+    job_id: str
+    task_id: str
+    status: str
+    total_count: int
+    success_count: int
+    failed_count: int
+    error_message: str | None = None
+
+
+class TaskImageStatusItem(BaseModel):
+    image_id: str
+    filename: str
+    status: str
+    has_prediction: bool
+    has_annotation: bool
+
+
+class TaskImageStatusResponse(BaseModel):
+    task_id: str
+    images: list[TaskImageStatusItem]
