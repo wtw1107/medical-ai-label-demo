@@ -41,19 +41,54 @@ class LabelStudioService:
         self.settings = settings
         self.base_url = settings.label_studio_url.rstrip("/")
 
-    def _headers(self) -> dict[str, str]:
+    def _refresh_access_token(self) -> str:
         if not self.settings.label_studio_api_token:
             raise HTTPException(
                 status_code=400,
                 detail="LABEL_STUDIO_API_TOKEN is not configured. Please set it in .env before creating tasks.",
             )
+
+        refresh_url = f"{self.base_url}/api/token/refresh/"
+        payload = {"refresh": self.settings.label_studio_api_token}
+
+        try:
+            response = httpx.post(refresh_url, json=payload, timeout=30.0, trust_env=False)
+        except httpx.ConnectError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Could not connect to Label Studio. Please make sure Label Studio is running.",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=502, detail=f"Label Studio token refresh request failed: {exc}") from exc
+
+        if response.is_error:
+            raise HTTPException(
+                status_code=502,
+                detail="Failed to refresh Label Studio access token. Please check LABEL_STUDIO_API_TOKEN.",
+            )
+
+        access_token = response.json().get("access")
+        if not isinstance(access_token, str) or not access_token:
+            raise HTTPException(
+                status_code=502,
+                detail="Failed to refresh Label Studio access token. Please check LABEL_STUDIO_API_TOKEN.",
+            )
+        return access_token
+
+    def _headers(self) -> dict[str, str]:
+        access_token = self._refresh_access_token()
         return {
-            "Authorization": f"Token {self.settings.label_studio_api_token}",
+            "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
         }
 
     def _client(self) -> httpx.Client:
-        return httpx.Client(base_url=self.base_url, headers=self._headers(), timeout=30.0)
+        return httpx.Client(
+            base_url=self.base_url,
+            headers=self._headers(),
+            timeout=30.0,
+            trust_env=False,
+        )
 
     def _project_url(self, project_id: int) -> str:
         return f"{self.base_url}/projects/{project_id}/data"
@@ -105,7 +140,7 @@ class LabelStudioService:
         if response.status_code in {401, 403}:
             raise HTTPException(
                 status_code=502,
-                detail="Label Studio authentication failed. Please check LABEL_STUDIO_API_TOKEN.",
+                detail="Failed to refresh Label Studio access token. Please check LABEL_STUDIO_API_TOKEN.",
             )
         if response.is_error:
             raise HTTPException(
@@ -134,7 +169,7 @@ class LabelStudioService:
         if response.status_code in {401, 403}:
             raise HTTPException(
                 status_code=502,
-                detail="Label Studio authentication failed during task import. Please check LABEL_STUDIO_API_TOKEN.",
+                detail="Failed to refresh Label Studio access token. Please check LABEL_STUDIO_API_TOKEN.",
             )
         if response.is_error:
             raise HTTPException(
