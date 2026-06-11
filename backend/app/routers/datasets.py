@@ -9,12 +9,18 @@ from app.services.storage_service import upload_dataset
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
 
-@router.post("/upload", response_model=DatasetUploadResponse)
+@router.post(
+    "/upload",
+    response_model=DatasetUploadResponse,
+)
 def upload_dataset_endpoint(
     name: str = Form(...),
     description: str | None = Form(default=None),
-    created_by: str = Form(...),
-    files: list[UploadFile] = File(...),
+    created_by: str | None = Form(default=None),
+    files: list[UploadFile] = File(
+        ...,
+        json_schema_extra={"items": {"type": "string", "format": "binary"}},
+    ),
     db: Session = Depends(get_db),
 ) -> DatasetUploadResponse:
     settings = get_settings()
@@ -22,7 +28,7 @@ def upload_dataset_endpoint(
         db=db,
         name=name,
         description=description,
-        created_by=created_by,
+        created_by=created_by or settings.default_user_id,
         settings=settings,
         files=files,
     )
