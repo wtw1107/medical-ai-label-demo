@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Node
+node_modules/
+dist/
+build/
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project data
+data/datasets/
+data/exports/
+data/label-studio/
+data/*.db
+*.sqlite
+*.sqlite3
+
+# Model weights
+*.pt
+*.pth
+*.onnx
+*.ckpt
+model_service/models/*.pt
+model_service/models/*.pth
+model_service/models/*.onnx
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
