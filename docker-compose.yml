@@ -1,0 +1,15 @@
+services:
+  label-studio:
+    image: heartexlabs/label-studio:latest
+    container_name: medical-ai-label-demo-label-studio
+    ports:
+      - "8080:8080"
+    environment:
+      LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK: "true"
+    volumes:
+      - ./data/label-studio:/label-studio/data
+    restart: unless-stopped
+
+networks:
+  default:
+    name: medical-ai-label-demo

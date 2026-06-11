@@ -1,9 +1,16 @@
+# Environment
+.env
+.env.*
+!.env.example
+
 # Python
 __pycache__/
 *.pyc
+*.db
+*.sqlite
+*.sqlite3
 .venv/
 venv/
-.env
 
 # Node
 node_modules/
@@ -20,12 +27,10 @@ build/
 Thumbs.db
 
 # Project data
+data/
 data/datasets/
 data/exports/
 data/label-studio/
-data/*.db
-*.sqlite
-*.sqlite3
 
 # Model weights
 *.pt

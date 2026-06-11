@@ -1,0 +1,28 @@
+models:
+  - id: mock_detection
+    name: Mock Detection Model
+    task_type: detection
+    version: v0.1
+    endpoint: http://localhost:9000/predict/detection
+    status: available
+
+  - id: mock_segmentation
+    name: Mock Segmentation Model
+    task_type: segmentation
+    version: v0.1
+    endpoint: http://localhost:9000/predict/segmentation
+    status: available
+
+  - id: thyroid_yolo_v1
+    name: Thyroid YOLO v1
+    task_type: detection
+    version: v1.0
+    endpoint: http://localhost:9000/predict/detection
+    status: unavailable
+
+  - id: medsam_v1
+    name: MedSAM v1
+    task_type: segmentation
+    version: v1.0
+    endpoint: http://localhost:9000/predict/segmentation
+    status: unavailable
