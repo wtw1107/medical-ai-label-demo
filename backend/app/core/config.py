@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from re import match
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,10 +23,21 @@ class Settings(BaseSettings):
     label_studio_api_token: str = Field(default="", alias="LABEL_STUDIO_API_TOKEN")
     model_service_url: str = Field(default="http://localhost:9000", alias="MODEL_SERVICE_URL")
     default_user_id: str = Field(default="local_demo_user", alias="DEFAULT_USER_ID")
+    project_root: Path = Field(default_factory=lambda: Path(__file__).resolve().parents[3])
 
     def ensure_data_root(self) -> Path:
+        if not self.data_root.is_absolute():
+            self.data_root = (self.project_root / self.data_root).resolve()
         self.data_root.mkdir(parents=True, exist_ok=True)
         return self.data_root
+
+    def get_database_url(self) -> str:
+        if self.database_url.startswith("sqlite:///"):
+            raw_path = self.database_url.removeprefix("sqlite:///")
+            if raw_path and not raw_path.startswith("/") and not match(r"^[A-Za-z]:", raw_path):
+                resolved_path = (self.project_root / raw_path).resolve()
+                return f"sqlite:///{resolved_path.as_posix()}"
+        return self.database_url
 
 
 @lru_cache

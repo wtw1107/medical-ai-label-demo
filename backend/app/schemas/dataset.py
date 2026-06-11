@@ -42,3 +42,15 @@ class ImageItemRead(ImageItemBase):
     id: str
     status: str
     error_message: str | None = None
+
+
+class UploadWarning(BaseModel):
+    filename: str
+    message: str
+
+
+class DatasetUploadResponse(BaseModel):
+    dataset_id: str
+    image_count: int
+    images: list[ImageItemRead]
+    warnings: list[UploadWarning] = Field(default_factory=list)
