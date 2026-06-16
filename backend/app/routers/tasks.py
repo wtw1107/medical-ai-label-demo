@@ -3,7 +3,12 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.db.session import get_db
-from app.schemas.task import AnnotationTaskCreate, AnnotationTaskCreateResponse, AnnotationTaskUrlResponse
+from app.schemas.task import (
+    AnnotationTaskCreate,
+    AnnotationTaskCreateResponse,
+    AnnotationTaskDetailResponse,
+    AnnotationTaskUrlResponse,
+)
 from app.services.label_studio_service import LabelStudioService
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -27,3 +32,13 @@ def get_label_studio_url(
     settings = get_settings()
     service = LabelStudioService(settings)
     return service.get_label_studio_url(db=db, task_id=task_id)
+
+
+@router.get("/{task_id}", response_model=AnnotationTaskDetailResponse)
+def get_annotation_task(
+    task_id: str,
+    db: Session = Depends(get_db),
+) -> AnnotationTaskDetailResponse:
+    settings = get_settings()
+    service = LabelStudioService(settings)
+    return service.get_annotation_task(db=db, task_id=task_id)

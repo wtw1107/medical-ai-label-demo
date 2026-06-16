@@ -410,3 +410,36 @@ NAS / MinIO / Object Storage
 8. Label Studio API 统一由后端封装；
 9. 模型调用统一由 model service 封装；
 10. 导出格式转换统一放在 converters / scripts 中。
+---
+
+## 5. Frontend MVP
+
+Frontend MVP lives in `frontend/` and focuses on AI-assisted labeling workflow orchestration instead of replacing the Label Studio workspace.
+
+Start the frontend locally:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Default local URL:
+
+```text
+http://localhost:5173
+```
+
+Optional frontend env:
+
+```env
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+The frontend MVP currently covers:
+
+- dataset upload and task creation
+- task detail and image status overview
+- AI prelabel trigger and job status display
+- jump to Label Studio for human review
+- export creation and zip download

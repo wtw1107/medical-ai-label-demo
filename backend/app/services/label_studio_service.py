@@ -12,7 +12,12 @@ from app.core.config import Settings
 from app.core.constants import AnnotationTaskStatus
 from app.db.models import AnnotationTask, Dataset, ImageItem
 from app.db.session import engine
-from app.schemas.task import AnnotationTaskCreate, AnnotationTaskCreateResponse, AnnotationTaskUrlResponse
+from app.schemas.task import (
+    AnnotationTaskCreate,
+    AnnotationTaskCreateResponse,
+    AnnotationTaskDetailResponse,
+    AnnotationTaskUrlResponse,
+)
 
 
 @dataclass
@@ -366,3 +371,22 @@ class LabelStudioService:
                 detail="Label Studio project URL is not available for this task.",
             )
         return AnnotationTaskUrlResponse(url=task.label_studio_project_url)
+
+    def get_annotation_task(self, *, db: Session, task_id: str) -> AnnotationTaskDetailResponse:
+        task = db.get(AnnotationTask, task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail=f"Annotation task not found: {task_id}")
+        return AnnotationTaskDetailResponse(
+            task_id=task.id,
+            dataset_id=task.dataset_id,
+            name=task.name,
+            task_type=task.task_type,
+            label_name=task.label_name,
+            det_model_id=task.det_model_id,
+            seg_model_id=task.seg_model_id,
+            require_human_confirm=task.require_human_confirm,
+            label_studio_project_id=task.label_studio_project_id,
+            label_studio_project_url=task.label_studio_project_url,
+            status=task.status,
+            error_message=task.error_message,
+        )

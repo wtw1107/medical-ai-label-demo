@@ -37,3 +37,18 @@ class AnnotationTaskCreateResponse(BaseModel):
 
 class AnnotationTaskUrlResponse(BaseModel):
     url: str
+
+
+class AnnotationTaskDetailResponse(BaseModel):
+    task_id: str
+    dataset_id: str
+    name: str
+    task_type: str
+    label_name: str
+    det_model_id: str | None = None
+    seg_model_id: str | None = None
+    require_human_confirm: bool
+    label_studio_project_id: int | None = None
+    label_studio_project_url: str | None = None
+    status: str
+    error_message: str | None = None

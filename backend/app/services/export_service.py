@@ -13,7 +13,7 @@ from app.converters.mask_converter import write_mask_png
 from app.core.config import Settings
 from app.core.constants import ExportFormat, ExportRange, ExportRecordStatus, ImageStatus
 from app.db.models import AnnotationTask, ExportRecord, ImageItem
-from app.schemas.export import ExportRequest, ExportResponse
+from app.schemas.export import ExportRequest, ExportResponse, ExportStatusResponse
 from app.services.label_studio_service import LabelStudioService
 
 
@@ -124,6 +124,22 @@ class ExportService:
         if not path.exists():
             raise HTTPException(status_code=404, detail="Export zip file not found on disk.")
         return path
+
+    def get_export_status(self, *, db: Session, export_id: str) -> ExportStatusResponse:
+        export_record = db.get(ExportRecord, export_id)
+        if export_record is None:
+            raise HTTPException(status_code=404, detail=f"Export record not found: {export_id}")
+        return ExportStatusResponse(
+            export_id=export_record.id,
+            task_id=export_record.task_id,
+            format=export_record.format,
+            range=export_record.range,
+            status=export_record.status,
+            file_path=export_record.file_path,
+            download_url=export_record.download_url,
+            total_count=export_record.total_count,
+            error_message=export_record.error_message,
+        )
 
     def _collect_confirmed_annotations(
         self,
