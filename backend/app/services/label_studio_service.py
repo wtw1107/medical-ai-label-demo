@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass
 
@@ -99,6 +100,31 @@ class LabelStudioService:
             trust_env=False,
         )
 
+    def _format_error_response(self, response: httpx.Response) -> str:
+        try:
+            body = response.json()
+        except (json.JSONDecodeError, ValueError):
+            return response.text
+
+        if isinstance(body, dict):
+            validation_errors = body.get("validation_errors")
+            if isinstance(validation_errors, dict):
+                messages: list[str] = []
+                for field, field_errors in validation_errors.items():
+                    if not isinstance(field_errors, list):
+                        continue
+                    for field_error in field_errors:
+                        if isinstance(field_error, str):
+                            messages.append(f"{field}: {field_error}")
+                if messages:
+                    return "; ".join(messages)
+
+            detail = body.get("detail")
+            if isinstance(detail, str) and detail:
+                return detail
+
+        return response.text
+
     def _project_url(self, project_id: int) -> str:
         return f"{self.base_url}/projects/{project_id}/data"
 
@@ -155,7 +181,7 @@ class LabelStudioService:
         if response.is_error:
             raise HTTPException(
                 status_code=502,
-                detail=f"Label Studio request failed: {response.text}",
+                detail=f"Label Studio request failed: {self._format_error_response(response)}",
             )
 
         body = response.json()
@@ -165,8 +191,9 @@ class LabelStudioService:
 
     def create_project(self, *, title: str, description: str | None, task_type: str) -> LabelStudioProject:
         label_config = self._load_label_config(task_type)
+        normalized_title = title.strip()
         payload = {
-            "title": title,
+            "title": normalized_title,
             "description": description,
             "label_config": label_config,
         }

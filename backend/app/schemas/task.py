@@ -1,13 +1,18 @@
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.core.constants import TaskType
+
+TaskName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=128)]
+LabelName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
 
 
 class AnnotationTaskBase(BaseModel):
     dataset_id: str
-    name: str
+    name: TaskName
     task_type: str = Field(default=TaskType.BBOX.value)
-    label_name: str
+    label_name: LabelName
     det_model_id: str | None = None
     seg_model_id: str | None = None
     require_human_confirm: bool = True

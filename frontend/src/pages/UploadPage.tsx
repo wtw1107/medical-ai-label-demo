@@ -1,6 +1,6 @@
+import { InboxOutlined } from "@ant-design/icons";
 import { Alert, Button, Card, Col, Form, Input, Radio, Row, Space, Steps, Switch, Typography, Upload, message } from "antd";
 import type { RcFile, UploadFile } from "antd/es/upload/interface";
-import { InboxOutlined } from "@ant-design/icons";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -46,22 +46,26 @@ export function UploadPage() {
       }
 
       setSubmitting(true);
+      const datasetName = values.datasetName.trim();
+      const datasetDescription = values.datasetDescription?.trim();
+      const taskName = values.taskName.trim();
+      const labelName = values.labelName.trim();
       const files = fileList
         .map((item) => item.originFileObj)
         .filter((item): item is RcFile => item instanceof File);
 
       const dataset = await uploadDataset({
-        name: values.datasetName,
-        description: values.datasetDescription,
+        name: datasetName,
+        description: datasetDescription,
         files,
       });
       setUploadResult(dataset);
 
       const task = await createTask({
         dataset_id: dataset.dataset_id,
-        name: values.taskName,
+        name: taskName,
         task_type: values.taskType,
-        label_name: values.labelName,
+        label_name: labelName,
         det_model_id: values.detModelId || null,
         seg_model_id: values.segModelId || null,
         require_human_confirm: values.requireHumanConfirm,
@@ -110,7 +114,14 @@ export function UploadPage() {
                 requireHumanConfirm: true,
               }}
             >
-              <Form.Item label="数据集名称" name="datasetName" rules={[{ required: true, message: "请输入数据集名称" }]}>
+              <Form.Item
+                label="数据集名称"
+                name="datasetName"
+                rules={[
+                  { required: true, message: "请输入数据集名称" },
+                  { whitespace: true, message: "数据集名称不能为空白" },
+                ]}
+              >
                 <Input placeholder="例如：肺部病灶样例集" size="large" />
               </Form.Item>
               <Form.Item label="数据集说明" name="datasetDescription">
@@ -129,7 +140,9 @@ export function UploadPage() {
                     <InboxOutlined />
                   </p>
                   <p className="ant-upload-text">拖拽图片或 ZIP 到这里，或点击选择文件</p>
-                  <p className="ant-upload-hint">支持单张图片、多张图片和 ZIP。前端只负责发起上传，解析与存储由后端完成。</p>
+                  <p className="ant-upload-hint">
+                    支持单张图片、多张图片和 ZIP。前端只负责发起上传，解析与存储由后端完成。
+                  </p>
                 </Upload.Dragger>
               </Form.Item>
             </Form>
@@ -139,7 +152,15 @@ export function UploadPage() {
         <Col xs={24} xl={10}>
           <Card title="创建 AI 辅助标注任务" className="panel-card">
             <Form form={form} layout="vertical">
-              <Form.Item label="任务名称" name="taskName" rules={[{ required: true, message: "请输入任务名称" }]}>
+              <Form.Item
+                label="任务名称"
+                name="taskName"
+                rules={[
+                  { required: true, message: "请输入任务名称" },
+                  { whitespace: true, message: "任务名称不能为空白" },
+                  { min: 3, message: "任务名称至少需要 3 个字符" },
+                ]}
+              >
                 <Input placeholder="例如：肺部病灶 bbox + polygon 标注" size="large" />
               </Form.Item>
               <Form.Item label="任务类型" name="taskType">
@@ -149,7 +170,14 @@ export function UploadPage() {
                   <Radio.Button value="bbox_polygon">BBox + Polygon</Radio.Button>
                 </Radio.Group>
               </Form.Item>
-              <Form.Item label="标签名称" name="labelName" rules={[{ required: true, message: "请输入标签名称" }]}>
+              <Form.Item
+                label="标签名称"
+                name="labelName"
+                rules={[
+                  { required: true, message: "请输入标签名称" },
+                  { whitespace: true, message: "标签名称不能为空白" },
+                ]}
+              >
                 <Input placeholder="默认使用病灶" />
               </Form.Item>
               {selectedTaskType !== "polygon" ? (

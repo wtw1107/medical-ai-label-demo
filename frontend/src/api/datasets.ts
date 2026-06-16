@@ -16,9 +16,7 @@ export async function uploadDataset(payload: UploadDatasetPayload) {
   payload.files.forEach((file) => formData.append("files", file));
 
   const response = await apiClient.post<DatasetUploadResponse>("/api/datasets/upload", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
+    timeout: 300000,
   });
   return response.data;
 }
