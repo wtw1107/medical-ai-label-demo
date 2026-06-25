@@ -67,3 +67,33 @@ class LabelStudioStatusSyncResponse(BaseModel):
     prediction_written_count: int
     annotation_saved_count: int
     images: list[TaskImageStatusItem]
+
+
+class PredictionPreviewValue(BaseModel):
+    x: float | None = None
+    y: float | None = None
+    width: float | None = None
+    height: float | None = None
+    points: list[list[float]] = []
+
+
+class PredictionPreviewItem(BaseModel):
+    type: str
+    label: str
+    score: float | None = None
+    value: PredictionPreviewValue
+
+
+class PredictionPreviewResponse(BaseModel):
+    task_id: str
+    image_id: str
+    filename: str
+    image_url: str
+    image_width: int | None = None
+    image_height: int | None = None
+    label_studio_task_id: int | None = None
+    label_studio_task_url: str | None = None
+    has_prediction: bool
+    model_version: str | None = None
+    predictions: list[PredictionPreviewItem]
+    raw_prediction_count: int

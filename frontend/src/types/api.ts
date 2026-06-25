@@ -107,6 +107,36 @@ export interface LabelStudioStatusSyncResponse {
   images: TaskImageStatusItem[];
 }
 
+export interface PredictionPreviewValue {
+  x?: number | null;
+  y?: number | null;
+  width?: number | null;
+  height?: number | null;
+  points?: number[][];
+}
+
+export interface PredictionPreviewItem {
+  type: "rectanglelabels" | "polygonlabels";
+  label: string;
+  score?: number | null;
+  value: PredictionPreviewValue;
+}
+
+export interface PredictionPreviewResponse {
+  task_id: string;
+  image_id: string;
+  filename: string;
+  image_url: string;
+  image_width: number | null;
+  image_height: number | null;
+  label_studio_task_id: number | null;
+  label_studio_task_url: string | null;
+  has_prediction: boolean;
+  model_version: string | null;
+  predictions: PredictionPreviewItem[];
+  raw_prediction_count: number;
+}
+
 export interface ExportRequest {
   format: ExportFormat;
   range: ExportRange;

@@ -5,6 +5,7 @@ from app.core.config import get_settings
 from app.db.session import get_db
 from app.schemas.prelabel import (
     LabelStudioStatusSyncResponse,
+    PredictionPreviewResponse,
     PrelabelJobStatusResponse,
     PrelabelRunResponse,
     TaskImageStatusResponse,
@@ -48,3 +49,13 @@ def sync_label_studio_status(
 ) -> LabelStudioStatusSyncResponse:
     service = PrelabelService(get_settings())
     return service.sync_label_studio_status(db=db, task_id=task_id)
+
+
+@router.get("/tasks/{task_id}/images/{image_id}/prediction-preview", response_model=PredictionPreviewResponse)
+def get_prediction_preview(
+    task_id: str,
+    image_id: str,
+    db: Session = Depends(get_db),
+) -> PredictionPreviewResponse:
+    service = PrelabelService(get_settings())
+    return service.get_prediction_preview(db=db, task_id=task_id, image_id=image_id)

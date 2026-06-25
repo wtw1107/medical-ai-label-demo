@@ -8,6 +8,7 @@ interface ImageStatusTableProps {
   images: TaskImageStatusItem[];
   loading?: boolean;
   onEnterLabel?: (image: TaskImageStatusItem) => void;
+  onPreviewPrediction?: (image: TaskImageStatusItem) => void;
 }
 
 function renderPredictionStatus(status?: string) {
@@ -27,7 +28,7 @@ function renderAnnotationStatus(status?: string) {
   return <Tag color="default">未保存</Tag>;
 }
 
-export function ImageStatusTable({ images, loading, onEnterLabel }: ImageStatusTableProps) {
+export function ImageStatusTable({ images, loading, onEnterLabel, onPreviewPrediction }: ImageStatusTableProps) {
   const columns: ColumnsType<TaskImageStatusItem> = [
     {
       title: "文件名",
@@ -57,16 +58,23 @@ export function ImageStatusTable({ images, loading, onEnterLabel }: ImageStatusT
       title: "操作",
       key: "actions",
       render: (_, image) => {
-        const disabled = !image.label_studio_task_url;
-        const actionButton = (
-          <Button type="link" disabled={disabled} onClick={() => onEnterLabel?.(image)}>
-            进入标注
-          </Button>
-        );
+        const previewDisabled = !(image.prediction_status === "written" || image.has_prediction);
+        const labelDisabled = !image.label_studio_task_url;
 
         return (
           <Space direction="vertical" size={4}>
-            {disabled ? <Tooltip title="暂无 task URL，请先同步或重新创建任务">{actionButton}</Tooltip> : actionButton}
+            <Space wrap>
+              <Tooltip title={previewDisabled ? "当前图像暂无 AI prediction，可先触发预标注并同步状态。" : ""}>
+                <Button type="link" disabled={previewDisabled} onClick={() => onPreviewPrediction?.(image)}>
+                  预览 AI 结果
+                </Button>
+              </Tooltip>
+              <Tooltip title={labelDisabled ? "暂无 task URL，请先同步或重新创建任务" : ""}>
+                <Button type="link" disabled={labelDisabled} onClick={() => onEnterLabel?.(image)}>
+                  进入标注
+                </Button>
+              </Tooltip>
+            </Space>
             {image.label_studio_task_id ? (
               <Typography.Text type="secondary">Task #{image.label_studio_task_id}</Typography.Text>
             ) : (
@@ -85,7 +93,7 @@ export function ImageStatusTable({ images, loading, onEnterLabel }: ImageStatusT
       dataSource={images}
       loading={loading}
       pagination={false}
-      scroll={{ x: 880 }}
+      scroll={{ x: 980 }}
     />
   );
 }

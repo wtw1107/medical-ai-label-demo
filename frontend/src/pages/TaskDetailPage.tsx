@@ -1,16 +1,16 @@
 import { Alert, Button, Card, Descriptions, Empty, Space, Tabs, Typography, message } from "antd";
-import { useMemo, useState } from "react";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
-import { getTaskImages, syncLabelStudioStatus } from "../api/prelabel";
+import { getPredictionPreview, getTaskImages, syncLabelStudioStatus } from "../api/prelabel";
 import { getLabelStudioUrl, getTaskDetail } from "../api/tasks";
 import { ExportPanel } from "../components/ExportPanel";
 import { ImageStatusTable } from "../components/ImageStatusTable";
+import { PredictionPreview } from "../components/PredictionPreview";
 import { PrelabelPanel } from "../components/PrelabelPanel";
 import { StatusTag } from "../components/StatusTag";
 import { WorkbenchPanel } from "../components/WorkbenchPanel";
-import type { AnnotationTaskDetail, TaskImageStatusItem } from "../types/api";
+import type { AnnotationTaskDetail, PredictionPreviewResponse, TaskImageStatusItem } from "../types/api";
 
 export function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -21,6 +21,10 @@ export function TaskDetailPage() {
   const [activeTabKey, setActiveTabKey] = useState("overview");
   const [selectedWorkbenchImage, setSelectedWorkbenchImage] = useState<TaskImageStatusItem | null>(null);
   const [iframeRefreshKey, setIframeRefreshKey] = useState(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<TaskImageStatusItem | null>(null);
+  const [previewData, setPreviewData] = useState<PredictionPreviewResponse | null>(null);
 
   useEffect(() => {
     if (!taskId) {
@@ -124,6 +128,33 @@ export function TaskDetailPage() {
     setIframeRefreshKey((value) => value + 1);
   };
 
+  const handlePreviewPrediction = async (image: TaskImageStatusItem) => {
+    if (!taskId) {
+      return;
+    }
+
+    try {
+      setPreviewOpen(true);
+      setPreviewLoading(true);
+      setPreviewImage(image);
+      const preview = await getPredictionPreview(taskId, image.image_id);
+      setPreviewData(preview);
+    } catch (error) {
+      setPreviewData(null);
+      message.error(error instanceof Error ? error.message : "加载 AI 预览失败。");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleEnterLabelFromPreview = () => {
+    if (!previewImage) {
+      return;
+    }
+    setPreviewOpen(false);
+    handleEnterLabel(previewImage);
+  };
+
   const selectedImage = useMemo(() => {
     if (!selectedWorkbenchImage) {
       return null;
@@ -158,7 +189,7 @@ export function TaskDetailPage() {
             {task ? <StatusTag status={task.status} /> : null}
           </Space>
           <Typography.Paragraph className="hero-description">
-            这里汇总当前 AI 辅助标注任务的关键状态。你可以在本页查看图像状态、触发预标注、进入内嵌工作台完成人工确认，并在确认后导出结果。
+            这里汇总当前 AI 辅助标注任务的关键状态。你可以在本页查看图像状态、同步 Label Studio 状态、预览只读 AI 结果，并在需要时进入工作台完成人工确认和导出。
           </Typography.Paragraph>
           <Space wrap>
             <Typography.Text>图像总数：{imageStats.total}</Typography.Text>
@@ -219,7 +250,12 @@ export function TaskDetailPage() {
                 className="panel-card"
                 extra={<Typography.Text>共 {images.length} 张</Typography.Text>}
               >
-                <ImageStatusTable images={images} loading={loading || syncingStatus} onEnterLabel={handleEnterLabel} />
+                <ImageStatusTable
+                  images={images}
+                  loading={loading || syncingStatus}
+                  onEnterLabel={handleEnterLabel}
+                  onPreviewPrediction={(image) => void handlePreviewPrediction(image)}
+                />
               </Card>
             ),
           },
@@ -244,9 +280,21 @@ export function TaskDetailPage() {
           {
             key: "export",
             label: "导出结果",
-            children: <ExportPanel taskId={taskId} onExported={refreshTask} />,
+            children: <ExportPanel taskId={taskId} images={images} onExported={refreshTask} />,
           },
         ]}
+      />
+
+      <PredictionPreview
+        open={previewOpen}
+        loading={previewLoading}
+        preview={previewData}
+        onClose={() => {
+          setPreviewOpen(false);
+          setPreviewData(null);
+          setPreviewImage(null);
+        }}
+        onEnterLabel={() => handleEnterLabelFromPreview()}
       />
     </Space>
   );

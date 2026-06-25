@@ -18,6 +18,9 @@ from app.core.constants import (
 from app.db.models import AnnotationTask, ImageItem, PrelabelJob
 from app.schemas.prelabel import (
     LabelStudioStatusSyncResponse,
+    PredictionPreviewItem,
+    PredictionPreviewResponse,
+    PredictionPreviewValue,
     PrelabelJobStatusResponse,
     PrelabelRunResponse,
     TaskImageStatusItem,
@@ -185,6 +188,85 @@ class PrelabelService:
             images=image_statuses,
         )
 
+    def get_prediction_preview(
+        self,
+        *,
+        db: Session,
+        task_id: str,
+        image_id: str,
+    ) -> PredictionPreviewResponse:
+        task = db.get(AnnotationTask, task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail=f"Annotation task not found: {task_id}")
+        if task.label_studio_project_id is None:
+            raise HTTPException(status_code=400, detail="Label Studio project is not initialized for this task.")
+
+        image = db.get(ImageItem, image_id)
+        if image is None or image.dataset_id != task.dataset_id:
+            raise HTTPException(status_code=404, detail=f"Image not found in task dataset: {image_id}")
+
+        self.label_studio_service.sync_project_task_mappings(db=db, task=task, images=[image])
+        db.flush()
+
+        if image.label_studio_task_id is None:
+            db.commit()
+            return PredictionPreviewResponse(
+                task_id=task.id,
+                image_id=image.id,
+                filename=image.filename,
+                image_url=image.file_url,
+                image_width=image.width,
+                image_height=image.height,
+                label_studio_task_id=None,
+                label_studio_task_url=None,
+                has_prediction=False,
+                model_version=None,
+                predictions=[],
+                raw_prediction_count=0,
+            )
+
+        remote_tasks = self.label_studio_service.get_project_task_lookup(task.label_studio_project_id)
+        remote_task = remote_tasks.get(image.label_studio_task_id)
+        predictions_payload = remote_task.get("predictions", []) if isinstance(remote_task, dict) else []
+        predictions = predictions_payload if isinstance(predictions_payload, list) else []
+
+        preview_items: list[PredictionPreviewItem] = []
+        latest_model_version: str | None = None
+        if predictions:
+            latest_prediction = predictions[-1] if isinstance(predictions[-1], dict) else None
+            if latest_prediction is not None:
+                latest_model_version = latest_prediction.get("model_version")
+
+            for prediction in predictions:
+                if not isinstance(prediction, dict):
+                    continue
+                result_items = prediction.get("result", [])
+                if not isinstance(result_items, list):
+                    continue
+                for result_item in result_items:
+                    parsed_item = self._parse_prediction_result(result_item)
+                    if parsed_item is not None:
+                        preview_items.append(parsed_item)
+
+        db.commit()
+        return PredictionPreviewResponse(
+            task_id=task.id,
+            image_id=image.id,
+            filename=image.filename,
+            image_url=image.file_url,
+            image_width=image.width,
+            image_height=image.height,
+            label_studio_task_id=image.label_studio_task_id,
+            label_studio_task_url=self.label_studio_service.build_task_url(
+                task.label_studio_project_url,
+                image.label_studio_task_id,
+            ),
+            has_prediction=bool(preview_items),
+            model_version=latest_model_version,
+            predictions=preview_items,
+            raw_prediction_count=len(predictions),
+        )
+
     def _collect_task_image_statuses(
         self,
         *,
@@ -240,6 +322,60 @@ class PrelabelService:
         if image.status == ImageStatus.PRELABEL_FAILED.value:
             return PredictionStatus.FAILED.value
         return PredictionStatus.NONE.value
+
+    def _parse_prediction_result(self, result_item: object) -> PredictionPreviewItem | None:
+        if not isinstance(result_item, dict):
+            return None
+
+        prediction_type = result_item.get("type")
+        value = result_item.get("value")
+        if not isinstance(prediction_type, str) or not isinstance(value, dict):
+            return None
+        if prediction_type not in {"rectanglelabels", "polygonlabels"}:
+            return None
+
+        score = result_item.get("score")
+        normalized_score = float(score) if isinstance(score, (int, float)) else None
+
+        if prediction_type == "rectanglelabels":
+            labels = value.get("rectanglelabels", [])
+            label = labels[0] if isinstance(labels, list) and labels else "unknown"
+            return PredictionPreviewItem(
+                type=prediction_type,
+                label=label,
+                score=normalized_score,
+                value=PredictionPreviewValue(
+                    x=self._safe_float(value.get("x")),
+                    y=self._safe_float(value.get("y")),
+                    width=self._safe_float(value.get("width")),
+                    height=self._safe_float(value.get("height")),
+                ),
+            )
+
+        labels = value.get("polygonlabels", [])
+        label = labels[0] if isinstance(labels, list) and labels else "unknown"
+        points = value.get("points", [])
+        normalized_points = []
+        if isinstance(points, list):
+            for point in points:
+                if (
+                    isinstance(point, list)
+                    and len(point) == 2
+                    and isinstance(point[0], (int, float))
+                    and isinstance(point[1], (int, float))
+                ):
+                    normalized_points.append([float(point[0]), float(point[1])])
+        return PredictionPreviewItem(
+            type=prediction_type,
+            label=label,
+            score=normalized_score,
+            value=PredictionPreviewValue(points=normalized_points),
+        )
+
+    def _safe_float(self, value: object) -> float | None:
+        if isinstance(value, (int, float)):
+            return float(value)
+        return None
 
     def _predict_for_image(
         self,

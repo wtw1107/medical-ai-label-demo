@@ -458,6 +458,17 @@ Status sync notes:
 - the frontend will pull the latest prediction and annotation status from Label Studio and update the task image table
 - if the embedded iframe shows the login page, log in to local Label Studio first and then return to the frontend to continue syncing and reviewing
 
+AI prediction read-only preview:
+
+- after AI prelabel finishes and status has been synchronized, you can click `预览 AI 结果` in the image table
+- the frontend renders a read-only bbox / polygon overlay for quick inspection only
+- editing and human confirmation still happen inside the Label Studio workbench
+
+Export panel:
+
+- the export panel supports `simple_json`, `label_studio_json`, and `mask_png`
+- it is recommended to sync Label Studio status before export so the latest saved human annotations are reflected in the export summary
+
 ## 6. Standard Local Startup
 
 Use the standard local ports below for day-to-day development:
