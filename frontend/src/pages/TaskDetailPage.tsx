@@ -190,8 +190,7 @@ export function TaskDetailPage() {
             {task ? <StatusTag status={task.status} /> : null}
           </Space>
           <Typography.Paragraph className="hero-description">
-            这里汇总当前 AI 辅助标注任务的关键状态。你可以在本页查看图像状态、同步 Label Studio
-            状态、预览只读 AI 结果，并在需要时进入工作台完成人工确认和导出。
+            这里汇总当前 AI 辅助标注任务的关键状态。你可以在本页查看图像状态、同步 Label Studio 状态、选择模型触发预标注、预览只读 AI 结果，并在需要时进入工作台完成人工确认和导出。
           </Typography.Paragraph>
           <Space wrap>
             <Typography.Text>图像总数：{imageStats.total}</Typography.Text>
@@ -250,11 +249,7 @@ export function TaskDetailPage() {
             key: "images",
             label: "图像状态",
             children: (
-              <Card
-                title="图像状态总览"
-                className="panel-card"
-                extra={<Typography.Text>共 {images.length} 张</Typography.Text>}
-              >
+              <Card title="图像状态总览" className="panel-card" extra={<Typography.Text>共 {images.length} 张</Typography.Text>}>
                 <ImageStatusTable
                   images={images}
                   loading={loading || syncingStatus}
@@ -267,7 +262,15 @@ export function TaskDetailPage() {
           {
             key: "prelabel",
             label: "AI 预标注",
-            children: <PrelabelPanel taskId={taskId} onCompleted={refreshTask} />,
+            children: (
+              <PrelabelPanel
+                taskId={taskId}
+                taskType={task?.task_type || "bbox_polygon"}
+                detModelId={task?.det_model_id}
+                segModelId={task?.seg_model_id}
+                onCompleted={refreshTask}
+              />
+            ),
           },
           {
             key: "workbench",

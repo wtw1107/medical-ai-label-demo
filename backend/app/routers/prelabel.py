@@ -7,6 +7,7 @@ from app.schemas.prelabel import (
     LabelStudioStatusSyncResponse,
     PredictionPreviewResponse,
     PrelabelJobStatusResponse,
+    PrelabelRunRequest,
     PrelabelRunResponse,
     TaskImageStatusResponse,
 )
@@ -18,10 +19,11 @@ router = APIRouter(prefix="/api", tags=["prelabel"])
 @router.post("/tasks/{task_id}/prelabel", response_model=PrelabelRunResponse)
 def run_prelabel(
     task_id: str,
+    payload: PrelabelRunRequest | None = None,
     db: Session = Depends(get_db),
 ) -> PrelabelRunResponse:
     service = PrelabelService(get_settings())
-    return service.run_prelabel(db=db, task_id=task_id)
+    return service.run_prelabel(db=db, task_id=task_id, payload=payload)
 
 
 @router.get("/prelabel-jobs/{job_id}", response_model=PrelabelJobStatusResponse)

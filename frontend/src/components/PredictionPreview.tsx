@@ -86,7 +86,9 @@ export function PredictionPreview({ open, loading, preview, onClose, onEnterLabe
             <Descriptions.Item label="图像尺寸">
               {preview.image_width || "-"} x {preview.image_height || "-"}
             </Descriptions.Item>
+            <Descriptions.Item label="模型 ID">{preview.model_id || "未知"}</Descriptions.Item>
             <Descriptions.Item label="模型版本">{preview.model_version || "未知"}</Descriptions.Item>
+            <Descriptions.Item label="模型类型">{preview.model_type || "未知"}</Descriptions.Item>
             <Descriptions.Item label="Label Studio Task ID">{preview.label_studio_task_id || "未同步"}</Descriptions.Item>
             <Descriptions.Item label="Prediction 记录数">{preview.raw_prediction_count}</Descriptions.Item>
           </Descriptions>
@@ -97,7 +99,13 @@ export function PredictionPreview({ open, loading, preview, onClose, onEnterLabe
                   <Tag color="blue">{item.type}</Tag>
                   <Tag color="green">{item.label}</Tag>
                   <Tag>{item.score != null ? `score: ${item.score.toFixed(2)}` : "score: -"}</Tag>
+                  {item.model_id ? <Tag color="purple">{item.model_id}</Tag> : null}
+                  {item.model_type ? <Tag>{item.model_type}</Tag> : null}
+                  {item.model_version ? <Tag>{item.model_version}</Tag> : null}
                 </Space>
+                {item.created_at ? (
+                  <Typography.Text type="secondary">生成时间：{item.created_at}</Typography.Text>
+                ) : null}
               </div>
             ))}
           </div>

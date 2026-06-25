@@ -503,3 +503,65 @@ Standard local URLs:
 - backend docs: `http://127.0.0.1:8000/docs`
 - model service docs: `http://127.0.0.1:9000/docs`
 - Label Studio: `http://127.0.0.1:8080`
+
+## 7. Model Integration Contract
+
+The current project still uses `mock_detection` and `mock_segmentation` by default.
+
+This phase prepares the system for future real-model integration without changing the verified upload, prelabel, sync, preview, and export flow:
+
+- backend model registry: `GET /api/models`
+- frontend model selection in the AI prelabel panel
+- prelabel request supports optional `detection_model_id` and `segmentation_model_id`
+- mock models remain available as the default fallback
+- `real_detection_v1` and `real_segmentation_v1` are placeholder entries only
+
+If a placeholder real model is selected before it is configured, the backend returns a clear error instead of crashing.
+
+Current expectations for model outputs:
+
+- detection models should provide `model_id`, `model_version`, `model_type`, `score`, and bbox results
+- segmentation models should provide `model_id`, `model_version`, `model_type`, `score`, and polygon results
+
+Recommended future detection output:
+
+```json
+{
+  "model_id": "real_detection_v1",
+  "model_version": "v1.0",
+  "model_type": "detection",
+  "predictions": [
+    {
+      "label": "lesion",
+      "score": 0.87,
+      "bbox": {
+        "x": 120,
+        "y": 80,
+        "width": 160,
+        "height": 130
+      }
+    }
+  ]
+}
+```
+
+Recommended future segmentation output:
+
+```json
+{
+  "model_id": "real_segmentation_v1",
+  "model_version": "v1.0",
+  "model_type": "segmentation",
+  "predictions": [
+    {
+      "label": "lesion",
+      "score": 0.81,
+      "polygon": [
+        [31.2, 42.1],
+        [35.4, 39.8],
+        [41.7, 43.6]
+      ]
+    }
+  ]
+}
+```

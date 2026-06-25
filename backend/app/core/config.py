@@ -6,6 +6,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.constants import TaskType
+from app.core.model_registry import get_default_model_id
 
 
 class Settings(BaseSettings):
@@ -54,13 +55,9 @@ class Settings(BaseSettings):
             raise ValueError(f"Unsupported task_type: {task_type}") from exc
 
     def get_default_model_id(self, task_type: str) -> str:
-        if task_type == TaskType.BBOX.value:
-            return "mock_detection"
         if task_type == TaskType.POLYGON.value:
-            return "mock_segmentation"
-        if task_type == TaskType.BBOX_POLYGON.value:
-            return "mock_detection"
-        raise ValueError(f"Unsupported task_type: {task_type}")
+            return get_default_model_id(task_type, "segmentation")
+        return get_default_model_id(task_type, "detection")
 
 
 @lru_cache

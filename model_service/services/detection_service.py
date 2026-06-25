@@ -5,6 +5,7 @@ from utils.image_loader import try_load_image_info
 
 class MockDetectionService:
     model_version = "v0.1"
+    model_type = "detection"
 
     def predict(
         self,
@@ -17,6 +18,7 @@ class MockDetectionService:
         return DetectionPredictResponse(
             model_id=request.model_id,
             model_version=self.model_version,
+            model_type=self.model_type,
             results=[
                 DetectionResult(
                     label="病灶",

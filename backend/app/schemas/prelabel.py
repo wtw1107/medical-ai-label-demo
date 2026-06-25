@@ -34,6 +34,11 @@ class PrelabelRunResponse(BaseModel):
     failed_count: int
 
 
+class PrelabelRunRequest(BaseModel):
+    detection_model_id: str | None = None
+    segmentation_model_id: str | None = None
+
+
 class PrelabelJobStatusResponse(BaseModel):
     job_id: str
     task_id: str
@@ -81,6 +86,10 @@ class PredictionPreviewItem(BaseModel):
     type: str
     label: str
     score: float | None = None
+    model_id: str | None = None
+    model_version: str | None = None
+    model_type: str | None = None
+    created_at: str | None = None
     value: PredictionPreviewValue
 
 
@@ -94,6 +103,8 @@ class PredictionPreviewResponse(BaseModel):
     label_studio_task_id: int | None = None
     label_studio_task_url: str | None = None
     has_prediction: bool
+    model_id: str | None = None
     model_version: str | None = None
+    model_type: str | None = None
     predictions: list[PredictionPreviewItem]
     raw_prediction_count: int

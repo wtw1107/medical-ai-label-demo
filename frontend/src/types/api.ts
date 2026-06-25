@@ -1,6 +1,8 @@
 export type TaskType = "bbox" | "polygon" | "bbox_polygon";
 export type ExportFormat = "label_studio_json" | "simple_json" | "mask_png";
 export type ExportRange = "confirmed_only";
+export type ModelType = "detection" | "segmentation";
+export type ModelStatus = "available" | "not_configured";
 
 export interface UploadImageItem {
   id: string;
@@ -84,6 +86,24 @@ export interface LabelStudioUrlResponse {
   url: string;
 }
 
+export interface ModelInfo {
+  model_id: string;
+  model_name: string;
+  model_type: ModelType;
+  model_version: string;
+  status: ModelStatus;
+  description: string;
+}
+
+export interface ModelListResponse {
+  items: ModelInfo[];
+}
+
+export interface PrelabelRunRequest {
+  detection_model_id?: string | null;
+  segmentation_model_id?: string | null;
+}
+
 export interface PrelabelRunResponse {
   job_id: string;
   task_id: string;
@@ -140,6 +160,10 @@ export interface PredictionPreviewItem {
   type: "rectanglelabels" | "polygonlabels";
   label: string;
   score?: number | null;
+  model_id?: string | null;
+  model_version?: string | null;
+  model_type?: string | null;
+  created_at?: string | null;
   value: PredictionPreviewValue;
 }
 
@@ -153,7 +177,9 @@ export interface PredictionPreviewResponse {
   label_studio_task_id: number | null;
   label_studio_task_url: string | null;
   has_prediction: boolean;
+  model_id: string | null;
   model_version: string | null;
+  model_type: string | null;
   predictions: PredictionPreviewItem[];
   raw_prediction_count: number;
 }

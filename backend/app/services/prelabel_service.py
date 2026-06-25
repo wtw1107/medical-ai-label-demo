@@ -15,6 +15,7 @@ from app.core.constants import (
     PrelabelJobStatus,
     TaskType,
 )
+from app.core.model_registry import get_default_model_id, require_model
 from app.db.models import AnnotationTask, ImageItem, PrelabelJob
 from app.schemas.prelabel import (
     LabelStudioStatusSyncResponse,
@@ -22,6 +23,7 @@ from app.schemas.prelabel import (
     PredictionPreviewResponse,
     PredictionPreviewValue,
     PrelabelJobStatusResponse,
+    PrelabelRunRequest,
     PrelabelRunResponse,
     TaskImageStatusItem,
     TaskImageStatusResponse,
@@ -40,12 +42,24 @@ class PrelabelService:
         self.model_client = ModelServiceClient(settings)
         self.label_studio_service = LabelStudioService(settings)
 
-    def run_prelabel(self, *, db: Session, task_id: str) -> PrelabelRunResponse:
+    def run_prelabel(
+        self,
+        *,
+        db: Session,
+        task_id: str,
+        payload: PrelabelRunRequest | None = None,
+    ) -> PrelabelRunResponse:
         task = db.get(AnnotationTask, task_id)
         if task is None:
             raise HTTPException(status_code=404, detail=f"Annotation task not found: {task_id}")
         if task.label_studio_project_id is None:
             raise HTTPException(status_code=400, detail="Label Studio project is not initialized for this task.")
+
+        detection_model_id, segmentation_model_id = self._resolve_selected_models(task=task, payload=payload)
+        if detection_model_id is not None:
+            task.det_model_id = detection_model_id
+        if segmentation_model_id is not None:
+            task.seg_model_id = segmentation_model_id
 
         images = (
             db.query(ImageItem)
@@ -94,7 +108,12 @@ class PrelabelService:
                     if image.label_studio_task_id is None:
                         raise ValueError("Label Studio task mapping is missing for this image.")
 
-                    detection, segmentation = self._predict_for_image(task=task, image=image)
+                    detection, segmentation = self._predict_for_image(
+                        task=task,
+                        image=image,
+                        detection_model_id=detection_model_id,
+                        segmentation_model_id=segmentation_model_id,
+                    )
                     bundle = build_prediction_bundle(
                         task_type=task.task_type,
                         label_name=task.label_name,
@@ -220,7 +239,9 @@ class PrelabelService:
                 label_studio_task_id=None,
                 label_studio_task_url=None,
                 has_prediction=False,
+                model_id=None,
                 model_version=None,
+                model_type=None,
                 predictions=[],
                 raw_prediction_count=0,
             )
@@ -231,7 +252,9 @@ class PrelabelService:
         predictions = predictions_payload if isinstance(predictions_payload, list) else []
 
         preview_items: list[PredictionPreviewItem] = []
+        latest_model_id: str | None = None
         latest_model_version: str | None = None
+        latest_model_type: str | None = None
         if predictions:
             latest_prediction = predictions[-1] if isinstance(predictions[-1], dict) else None
             if latest_prediction is not None:
@@ -246,9 +269,17 @@ class PrelabelService:
                 for result_item in result_items:
                     parsed_item = self._parse_prediction_result(result_item)
                     if parsed_item is not None:
+                        if latest_model_id is None and parsed_item.model_id:
+                            latest_model_id = parsed_item.model_id
+                        if latest_model_type is None and parsed_item.model_type:
+                            latest_model_type = parsed_item.model_type
                         preview_items.append(parsed_item)
 
         db.commit()
+        if latest_model_id is None:
+            latest_model_id = self._build_preview_model_id(task)
+        if latest_model_type is None:
+            latest_model_type = self._build_preview_model_type(task)
         return PredictionPreviewResponse(
             task_id=task.id,
             image_id=image.id,
@@ -262,7 +293,9 @@ class PrelabelService:
                 image.label_studio_task_id,
             ),
             has_prediction=bool(preview_items),
+            model_id=latest_model_id,
             model_version=latest_model_version,
+            model_type=latest_model_type,
             predictions=preview_items,
             raw_prediction_count=len(predictions),
         )
@@ -340,10 +373,16 @@ class PrelabelService:
         if prediction_type == "rectanglelabels":
             labels = value.get("rectanglelabels", [])
             label = labels[0] if isinstance(labels, list) and labels else "unknown"
+            meta = result_item.get("meta", {})
+            normalized_meta = meta if isinstance(meta, dict) else {}
             return PredictionPreviewItem(
                 type=prediction_type,
                 label=label,
                 score=normalized_score,
+                model_id=self._safe_str(normalized_meta.get("model_id")),
+                model_version=self._safe_str(normalized_meta.get("model_version")),
+                model_type=self._safe_str(normalized_meta.get("model_type")),
+                created_at=self._safe_str(normalized_meta.get("created_at")),
                 value=PredictionPreviewValue(
                     x=self._safe_float(value.get("x")),
                     y=self._safe_float(value.get("y")),
@@ -354,6 +393,8 @@ class PrelabelService:
 
         labels = value.get("polygonlabels", [])
         label = labels[0] if isinstance(labels, list) and labels else "unknown"
+        meta = result_item.get("meta", {})
+        normalized_meta = meta if isinstance(meta, dict) else {}
         points = value.get("points", [])
         normalized_points = []
         if isinstance(points, list):
@@ -369,6 +410,10 @@ class PrelabelService:
             type=prediction_type,
             label=label,
             score=normalized_score,
+            model_id=self._safe_str(normalized_meta.get("model_id")),
+            model_version=self._safe_str(normalized_meta.get("model_version")),
+            model_type=self._safe_str(normalized_meta.get("model_type")),
+            created_at=self._safe_str(normalized_meta.get("created_at")),
             value=PredictionPreviewValue(points=normalized_points),
         )
 
@@ -377,11 +422,65 @@ class PrelabelService:
             return float(value)
         return None
 
+    def _safe_str(self, value: object) -> str | None:
+        if isinstance(value, str) and value:
+            return value
+        return None
+
+    def _build_preview_model_id(self, task: AnnotationTask) -> str | None:
+        if task.task_type == TaskType.BBOX.value:
+            return task.det_model_id or "mock_detection"
+        if task.task_type == TaskType.POLYGON.value:
+            return task.seg_model_id or "mock_segmentation"
+        if task.task_type == TaskType.BBOX_POLYGON.value:
+            detection_model_id = task.det_model_id or "mock_detection"
+            segmentation_model_id = task.seg_model_id or "mock_segmentation"
+            return f"{detection_model_id} + {segmentation_model_id}"
+        return None
+
+    def _build_preview_model_type(self, task: AnnotationTask) -> str | None:
+        if task.task_type == TaskType.BBOX.value:
+            return "detection"
+        if task.task_type == TaskType.POLYGON.value:
+            return "segmentation"
+        if task.task_type == TaskType.BBOX_POLYGON.value:
+            return "detection + segmentation"
+        return None
+
+    def _resolve_selected_models(
+        self,
+        *,
+        task: AnnotationTask,
+        payload: PrelabelRunRequest | None,
+    ) -> tuple[str | None, str | None]:
+        detection_model_id: str | None = None
+        segmentation_model_id: str | None = None
+
+        if task.task_type in {TaskType.BBOX.value, TaskType.BBOX_POLYGON.value}:
+            detection_model_id = (
+                payload.detection_model_id
+                if payload and payload.detection_model_id
+                else task.det_model_id or get_default_model_id(task.task_type, "detection")
+            )
+            require_model(detection_model_id, "detection")
+
+        if task.task_type in {TaskType.POLYGON.value, TaskType.BBOX_POLYGON.value}:
+            segmentation_model_id = (
+                payload.segmentation_model_id
+                if payload and payload.segmentation_model_id
+                else task.seg_model_id or get_default_model_id(task.task_type, "segmentation")
+            )
+            require_model(segmentation_model_id, "segmentation")
+
+        return detection_model_id, segmentation_model_id
+
     def _predict_for_image(
         self,
         *,
         task: AnnotationTask,
         image: ImageItem,
+        detection_model_id: str | None,
+        segmentation_model_id: str | None,
     ) -> tuple[dict[str, object] | None, dict[str, object] | None]:
         detection: dict[str, object] | None = None
         segmentation: dict[str, object] | None = None
@@ -390,14 +489,14 @@ class PrelabelService:
             detection = self.model_client.predict_detection(
                 image_url=image.file_url,
                 image_id=image.id,
-                model_id=task.det_model_id or "mock_detection",
+                model_id=detection_model_id or "mock_detection",
             )
 
         if task.task_type == TaskType.POLYGON.value:
             segmentation = self.model_client.predict_segmentation(
                 image_url=image.file_url,
                 image_id=image.id,
-                model_id=task.seg_model_id or "mock_segmentation",
+                model_id=segmentation_model_id or "mock_segmentation",
             )
         elif task.task_type == TaskType.BBOX_POLYGON.value:
             if not detection or not detection.get("results"):
@@ -406,7 +505,7 @@ class PrelabelService:
             segmentation = self.model_client.predict_segmentation(
                 image_url=image.file_url,
                 image_id=image.id,
-                model_id=task.seg_model_id or "mock_segmentation",
+                model_id=segmentation_model_id or "mock_segmentation",
                 bbox_prompt=bbox_prompt,
             )
 

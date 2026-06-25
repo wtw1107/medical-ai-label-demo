@@ -49,12 +49,14 @@ class SegmentationResult(BaseModel):
 class DetectionPredictResponse(BaseModel):
     model_id: str
     model_version: str
+    model_type: str
     results: list[DetectionResult]
 
 
 class SegmentationPredictResponse(BaseModel):
     model_id: str
     model_version: str
+    model_type: str
     results: list[SegmentationResult]
 
 

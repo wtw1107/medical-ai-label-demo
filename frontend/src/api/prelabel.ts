@@ -1,14 +1,15 @@
 import type {
   LabelStudioStatusSyncResponse,
   PredictionPreviewResponse,
+  PrelabelRunRequest,
   PrelabelJobStatusResponse,
   PrelabelRunResponse,
   TaskImagesResponse,
 } from "../types/api";
 import { apiClient } from "./client";
 
-export async function runPrelabel(taskId: string) {
-  const response = await apiClient.post<PrelabelRunResponse>(`/api/tasks/${taskId}/prelabel`);
+export async function runPrelabel(taskId: string, payload?: PrelabelRunRequest) {
+  const response = await apiClient.post<PrelabelRunResponse>(`/api/tasks/${taskId}/prelabel`, payload ?? {});
   return response.data;
 }
 

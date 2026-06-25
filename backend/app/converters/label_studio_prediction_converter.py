@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from app.core.constants import LabelStudioFieldName, TaskType
 
@@ -10,6 +11,15 @@ class PredictionBundle:
     model_version: str
     score: float
     results: list[dict[str, object]]
+
+
+def _build_result_meta(*, model_id: str, model_version: str, model_type: str) -> dict[str, object]:
+    return {
+        "model_id": model_id,
+        "model_version": model_version,
+        "model_type": model_type,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 def _clamp_percent(value: float) -> float:
@@ -36,6 +46,8 @@ def build_bbox_prediction(
     image_width: int,
     image_height: int,
     score: float,
+    model_id: str,
+    model_version: str,
 ) -> dict[str, object]:
     x, y, width, height = _normalize_bbox(bbox, image_width, image_height)
     return {
@@ -50,6 +62,11 @@ def build_bbox_prediction(
             "rectanglelabels": [label_name],
         },
         "score": score,
+        "meta": _build_result_meta(
+            model_id=model_id,
+            model_version=model_version,
+            model_type="detection",
+        ),
     }
 
 
@@ -60,6 +77,8 @@ def build_polygon_prediction(
     image_width: int,
     image_height: int,
     score: float,
+    model_id: str,
+    model_version: str,
 ) -> dict[str, object]:
     points = [
         [
@@ -77,6 +96,11 @@ def build_polygon_prediction(
             "polygonlabels": [label_name],
         },
         "score": score,
+        "meta": _build_result_meta(
+            model_id=model_id,
+            model_version=model_version,
+            model_type="segmentation",
+        ),
     }
 
 
@@ -102,6 +126,8 @@ def build_prediction_bundle(
                 image_width=image_width,
                 image_height=image_height,
                 score=float(det_result["score"]),
+                model_id=str(detection["model_id"]),
+                model_version=str(detection["model_version"]),
             )
         )
         versions.append(str(detection["model_version"]))
@@ -116,6 +142,8 @@ def build_prediction_bundle(
                 image_width=image_width,
                 image_height=image_height,
                 score=float(seg_result["score"]),
+                model_id=str(segmentation["model_id"]),
+                model_version=str(segmentation["model_version"]),
             )
         )
         versions.append(str(segmentation["model_version"]))
