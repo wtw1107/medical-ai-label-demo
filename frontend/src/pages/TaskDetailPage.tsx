@@ -20,34 +20,56 @@ export function TaskDetailPage() {
     if (!taskId) {
       return;
     }
+
     const currentTaskId = taskId;
+    let active = true;
 
     async function load() {
       try {
         setLoading(true);
-        const [taskDetail, taskImages] = await Promise.all([
-          getTaskDetail(currentTaskId),
-          getTaskImages(currentTaskId),
-        ]);
+        const [taskDetail, taskImages] = await Promise.all([getTaskDetail(currentTaskId), getTaskImages(currentTaskId)]);
+        if (!active) {
+          return;
+        }
         setTask(taskDetail);
         setImages(taskImages.images);
       } catch (error) {
+        if (!active) {
+          return;
+        }
+        setTask(null);
+        setImages([]);
         message.error(error instanceof Error ? error.message : "加载任务详情失败");
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
     void load();
+
+    return () => {
+      active = false;
+    };
   }, [taskId]);
 
   const refreshTask = async () => {
     if (!taskId) {
       return;
     }
-    const [taskDetail, taskImages] = await Promise.all([getTaskDetail(taskId), getTaskImages(taskId)]);
-    setTask(taskDetail);
-    setImages(taskImages.images);
+
+    const currentTaskId = taskId;
+    try {
+      setLoading(true);
+      const [taskDetail, taskImages] = await Promise.all([getTaskDetail(currentTaskId), getTaskImages(currentTaskId)]);
+      setTask(taskDetail);
+      setImages(taskImages.images);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "刷新任务状态失败");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOpenLabelStudio = async () => {
@@ -80,10 +102,10 @@ export function TaskDetailPage() {
             这里展示当前 AI 辅助标注任务的核心状态。你可以先触发预标注，再跳转 Label Studio 完成人工审核，最后回到这里发起导出。
           </Typography.Paragraph>
           <Space wrap>
-            <Button type="primary" size="large" onClick={handleOpenLabelStudio}>
+            <Button type="primary" size="large" onClick={handleOpenLabelStudio} disabled={!task}>
               打开 Label Studio 工作台
             </Button>
-            <Button size="large" onClick={() => void refreshTask()}>
+            <Button size="large" onClick={() => void refreshTask()} loading={loading}>
               刷新任务状态
             </Button>
           </Space>
@@ -114,7 +136,11 @@ export function TaskDetailPage() {
         </Col>
       </Row>
 
-      <Card title="图像状态总览" className="panel-card" extra={<Typography.Text>共 {images.length} 张</Typography.Text>}>
+      <Card
+        title="图像状态总览"
+        className="panel-card"
+        extra={<Typography.Text>共 {images.length} 张</Typography.Text>}
+      >
         <ImageStatusTable images={images} loading={loading} />
       </Card>
 

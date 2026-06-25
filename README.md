@@ -443,3 +443,37 @@ The frontend MVP currently covers:
 - AI prelabel trigger and job status display
 - jump to Label Studio for human review
 - export creation and zip download
+
+## 6. Standard Local Startup
+
+Use the standard local ports below for day-to-day development:
+
+- frontend: `5173`
+- backend: `8000`
+- Label Studio: `8080`
+- model service: `9000`
+
+One-click startup on Windows PowerShell:
+
+```powershell
+.\scripts\start-local-stack.ps1
+```
+
+If you want to force-restart the standard ports:
+
+```powershell
+.\scripts\start-local-stack.ps1 -ForceRestart
+```
+
+Stop the standard local stack:
+
+```powershell
+.\scripts\stop-local-stack.ps1
+```
+
+Standard local URLs:
+
+- frontend: `http://127.0.0.1:5173/index.html`
+- backend docs: `http://127.0.0.1:8000/docs`
+- model service docs: `http://127.0.0.1:9000/docs`
+- Label Studio: `http://127.0.0.1:8080`
