@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppLayout } from "./components/AppLayout";
+import { TaskListPage } from "./pages/TaskListPage";
 import { TaskDetailPage } from "./pages/TaskDetailPage";
 import { UploadPage } from "./pages/UploadPage";
 
@@ -9,6 +10,7 @@ export default function App() {
     <AppLayout>
       <Routes>
         <Route path="/" element={<UploadPage />} />
+        <Route path="/tasks" element={<TaskListPage />} />
         <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

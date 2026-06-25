@@ -10,13 +10,15 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.core.constants import AnnotationTaskStatus
+from app.core.constants import AnnotationTaskStatus, ImageStatus
 from app.db.models import AnnotationTask, Dataset, ImageItem
 from app.db.session import engine
 from app.schemas.task import (
     AnnotationTaskCreate,
     AnnotationTaskCreateResponse,
     AnnotationTaskDetailResponse,
+    AnnotationTaskListItemResponse,
+    AnnotationTaskListResponse,
     AnnotationTaskUrlResponse,
 )
 
@@ -422,3 +424,38 @@ class LabelStudioService:
             status=task.status,
             error_message=task.error_message,
         )
+
+    def list_annotation_tasks(self, *, db: Session) -> AnnotationTaskListResponse:
+        tasks = db.query(AnnotationTask).order_by(AnnotationTask.created_at.desc()).all()
+        items: list[AnnotationTaskListItemResponse] = []
+
+        for task in tasks:
+            dataset = db.get(Dataset, task.dataset_id)
+            image_items = (
+                db.query(ImageItem)
+                .filter(ImageItem.dataset_id == task.dataset_id)
+                .order_by(ImageItem.created_at.asc())
+                .all()
+            )
+            prediction_written_count = sum(
+                1 for image in image_items if image.status == ImageStatus.PRELABEL_DONE.value
+            )
+            items.append(
+                AnnotationTaskListItemResponse(
+                    task_id=task.id,
+                    task_name=task.name,
+                    task_type=task.task_type,
+                    dataset_id=task.dataset_id,
+                    dataset_name=dataset.name if dataset is not None else None,
+                    image_count=dataset.image_count if dataset is not None else len(image_items),
+                    prediction_written_count=prediction_written_count,
+                    annotation_saved_count=0,
+                    label_studio_project_id=task.label_studio_project_id,
+                    label_studio_project_url=task.label_studio_project_url,
+                    created_at=task.created_at.isoformat(),
+                    updated_at=task.updated_at.isoformat(),
+                    status=task.status,
+                )
+            )
+
+        return AnnotationTaskListResponse(items=items, total=len(items))

@@ -59,6 +59,27 @@ export interface AnnotationTaskDetail {
   error_message: string | null;
 }
 
+export interface AnnotationTaskListItem {
+  task_id: string;
+  task_name: string;
+  task_type: TaskType;
+  dataset_id: string;
+  dataset_name: string | null;
+  image_count: number;
+  prediction_written_count: number;
+  annotation_saved_count: number;
+  label_studio_project_id: number | null;
+  label_studio_project_url: string | null;
+  created_at: string;
+  updated_at: string;
+  status: string;
+}
+
+export interface AnnotationTaskListResponse {
+  items: AnnotationTaskListItem[];
+  total: number;
+}
+
 export interface LabelStudioUrlResponse {
   url: string;
 }

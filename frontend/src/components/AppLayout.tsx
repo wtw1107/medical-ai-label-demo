@@ -12,19 +12,18 @@ export function AppLayout({ children }: PropsWithChildren) {
   const items = useMemo(
     () => [
       {
+        key: "/tasks",
+        label: <Link to="/tasks">任务列表</Link>,
+      },
+      {
         key: "/",
         label: <Link to="/">上传与任务创建</Link>,
       },
-      {
-        key: "/tasks",
-        label: location.pathname.startsWith("/tasks/") ? "当前任务详情" : "任务详情",
-        disabled: !location.pathname.startsWith("/tasks/"),
-      },
     ],
-    [location.pathname],
+    [],
   );
 
-  const selectedKey = location.pathname.startsWith("/tasks/") ? "/tasks" : "/";
+  const selectedKey = location.pathname.startsWith("/tasks") ? "/tasks" : "/";
 
   return (
     <Layout className="app-shell">

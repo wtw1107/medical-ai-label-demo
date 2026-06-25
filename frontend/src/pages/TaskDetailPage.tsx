@@ -1,6 +1,6 @@
 import { Alert, Button, Card, Descriptions, Empty, Space, Tabs, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { getPredictionPreview, getTaskImages, syncLabelStudioStatus } from "../api/prelabel";
 import { getLabelStudioUrl, getTaskDetail } from "../api/tasks";
@@ -14,6 +14,7 @@ import type { AnnotationTaskDetail, PredictionPreviewResponse, TaskImageStatusIt
 
 export function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
+  const navigate = useNavigate();
   const [task, setTask] = useState<AnnotationTaskDetail | null>(null);
   const [images, setImages] = useState<TaskImageStatusItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,7 +190,8 @@ export function TaskDetailPage() {
             {task ? <StatusTag status={task.status} /> : null}
           </Space>
           <Typography.Paragraph className="hero-description">
-            这里汇总当前 AI 辅助标注任务的关键状态。你可以在本页查看图像状态、同步 Label Studio 状态、预览只读 AI 结果，并在需要时进入工作台完成人工确认和导出。
+            这里汇总当前 AI 辅助标注任务的关键状态。你可以在本页查看图像状态、同步 Label Studio
+            状态、预览只读 AI 结果，并在需要时进入工作台完成人工确认和导出。
           </Typography.Paragraph>
           <Space wrap>
             <Typography.Text>图像总数：{imageStats.total}</Typography.Text>
@@ -198,6 +200,9 @@ export function TaskDetailPage() {
             <Typography.Text>Annotation 已保存：{imageStats.annotationSaved}</Typography.Text>
           </Space>
           <Space wrap>
+            <Button size="large" onClick={() => navigate("/tasks")}>
+              返回任务列表
+            </Button>
             <Button type="primary" size="large" onClick={handleOpenLabelStudio} disabled={!task}>
               在新窗口打开 Label Studio
             </Button>

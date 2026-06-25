@@ -7,11 +7,21 @@ from app.schemas.task import (
     AnnotationTaskCreate,
     AnnotationTaskCreateResponse,
     AnnotationTaskDetailResponse,
+    AnnotationTaskListResponse,
     AnnotationTaskUrlResponse,
 )
 from app.services.label_studio_service import LabelStudioService
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
+
+
+@router.get("", response_model=AnnotationTaskListResponse)
+def list_annotation_tasks(
+    db: Session = Depends(get_db),
+) -> AnnotationTaskListResponse:
+    settings = get_settings()
+    service = LabelStudioService(settings)
+    return service.list_annotation_tasks(db=db)
 
 
 @router.post("", response_model=AnnotationTaskCreateResponse)

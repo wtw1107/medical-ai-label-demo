@@ -468,6 +468,7 @@ Export panel:
 
 - the export panel supports `simple_json`, `label_studio_json`, and `mask_png`
 - it is recommended to sync Label Studio status before export so the latest saved human annotations are reflected in the export summary
+- the task list page at `/tasks` lets you reopen existing annotation tasks and continue the workflow without going back through the upload page
 
 ## 6. Standard Local Startup
 

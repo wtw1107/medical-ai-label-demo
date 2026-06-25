@@ -205,6 +205,10 @@ a {
   background: rgba(255, 255, 255, 0.76);
 }
 
+.task-list-card .ant-table-wrapper {
+  overflow-x: auto;
+}
+
 @media (max-width: 992px) {
   .app-header {
     padding: 20px 18px 0;

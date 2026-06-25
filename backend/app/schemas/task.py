@@ -57,3 +57,24 @@ class AnnotationTaskDetailResponse(BaseModel):
     label_studio_project_url: str | None = None
     status: str
     error_message: str | None = None
+
+
+class AnnotationTaskListItemResponse(BaseModel):
+    task_id: str
+    task_name: str
+    task_type: str
+    dataset_id: str
+    dataset_name: str | None = None
+    image_count: int = 0
+    prediction_written_count: int = 0
+    annotation_saved_count: int = 0
+    label_studio_project_id: int | None = None
+    label_studio_project_url: str | None = None
+    created_at: str
+    updated_at: str
+    status: str
+
+
+class AnnotationTaskListResponse(BaseModel):
+    items: list[AnnotationTaskListItemResponse]
+    total: int
