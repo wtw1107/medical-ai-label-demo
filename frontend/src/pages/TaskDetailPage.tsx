@@ -1,8 +1,9 @@
 import { Alert, Button, Card, Descriptions, Empty, Space, Tabs, Typography, message } from "antd";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 
-import { getTaskImages } from "../api/prelabel";
+import { getTaskImages, syncLabelStudioStatus } from "../api/prelabel";
 import { getLabelStudioUrl, getTaskDetail } from "../api/tasks";
 import { ExportPanel } from "../components/ExportPanel";
 import { ImageStatusTable } from "../components/ImageStatusTable";
@@ -16,6 +17,7 @@ export function TaskDetailPage() {
   const [task, setTask] = useState<AnnotationTaskDetail | null>(null);
   const [images, setImages] = useState<TaskImageStatusItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncingStatus, setSyncingStatus] = useState(false);
   const [activeTabKey, setActiveTabKey] = useState("overview");
   const [selectedWorkbenchImage, setSelectedWorkbenchImage] = useState<TaskImageStatusItem | null>(null);
   const [iframeRefreshKey, setIframeRefreshKey] = useState(0);
@@ -28,10 +30,13 @@ export function TaskDetailPage() {
     const currentTaskId = taskId;
     let active = true;
 
-    async function load() {
+    async function loadTaskData() {
       try {
         setLoading(true);
-        const [taskDetail, taskImages] = await Promise.all([getTaskDetail(currentTaskId), getTaskImages(currentTaskId)]);
+        const [taskDetail, taskImages] = await Promise.all([
+          getTaskDetail(currentTaskId),
+          getTaskImages(currentTaskId),
+        ]);
         if (!active) {
           return;
         }
@@ -51,7 +56,7 @@ export function TaskDetailPage() {
       }
     }
 
-    void load();
+    void loadTaskData();
 
     return () => {
       active = false;
@@ -72,6 +77,26 @@ export function TaskDetailPage() {
       message.error(error instanceof Error ? error.message : "刷新任务状态失败。");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSyncLabelStudioStatus = async () => {
+    if (!taskId) {
+      return;
+    }
+
+    try {
+      setSyncingStatus(true);
+      const result = await syncLabelStudioStatus(taskId);
+      setImages(result.images);
+      await refreshTask();
+      message.success(
+        `同步完成：共 ${result.synced_count} 张图像，${result.prediction_written_count} 张已写入 prediction，${result.annotation_saved_count} 张已保存 annotation。`,
+      );
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "同步 Label Studio 状态失败。");
+    } finally {
+      setSyncingStatus(false);
     }
   };
 
@@ -103,9 +128,20 @@ export function TaskDetailPage() {
     if (!selectedWorkbenchImage) {
       return null;
     }
-
     return images.find((image) => image.image_id === selectedWorkbenchImage.image_id) || selectedWorkbenchImage;
   }, [images, selectedWorkbenchImage]);
+
+  const imageStats = useMemo(() => {
+    const predictionWritten = images.filter((image) => image.prediction_status === "written").length;
+    const predictionFailed = images.filter((image) => image.prediction_status === "failed").length;
+    const annotationSaved = images.filter((image) => image.annotation_status === "saved").length;
+    return {
+      total: images.length,
+      predictionWritten,
+      predictionFailed,
+      annotationSaved,
+    };
+  }, [images]);
 
   if (!taskId) {
     return <Empty description="未找到任务 ID" />;
@@ -125,8 +161,17 @@ export function TaskDetailPage() {
             这里汇总当前 AI 辅助标注任务的关键状态。你可以在本页查看图像状态、触发预标注、进入内嵌工作台完成人工确认，并在确认后导出结果。
           </Typography.Paragraph>
           <Space wrap>
+            <Typography.Text>图像总数：{imageStats.total}</Typography.Text>
+            <Typography.Text>Prediction 已写入：{imageStats.predictionWritten}</Typography.Text>
+            <Typography.Text>Prediction 失败：{imageStats.predictionFailed}</Typography.Text>
+            <Typography.Text>Annotation 已保存：{imageStats.annotationSaved}</Typography.Text>
+          </Space>
+          <Space wrap>
             <Button type="primary" size="large" onClick={handleOpenLabelStudio} disabled={!task}>
               在新窗口打开 Label Studio
+            </Button>
+            <Button size="large" onClick={() => void handleSyncLabelStudioStatus()} loading={syncingStatus}>
+              同步 Label Studio 状态
             </Button>
             <Button size="large" onClick={() => void refreshTask()} loading={loading}>
               刷新任务状态
@@ -174,7 +219,7 @@ export function TaskDetailPage() {
                 className="panel-card"
                 extra={<Typography.Text>共 {images.length} 张</Typography.Text>}
               >
-                <ImageStatusTable images={images} loading={loading} onEnterLabel={handleEnterLabel} />
+                <ImageStatusTable images={images} loading={loading || syncingStatus} onEnterLabel={handleEnterLabel} />
               </Card>
             ),
           },

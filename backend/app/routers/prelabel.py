@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.schemas.prelabel import (
+    LabelStudioStatusSyncResponse,
     PrelabelJobStatusResponse,
     PrelabelRunResponse,
     TaskImageStatusResponse,
@@ -38,3 +39,12 @@ def list_task_images(
 ) -> TaskImageStatusResponse:
     service = PrelabelService(get_settings())
     return service.list_task_images(db=db, task_id=task_id)
+
+
+@router.post("/tasks/{task_id}/sync-label-studio-status", response_model=LabelStudioStatusSyncResponse)
+def sync_label_studio_status(
+    task_id: str,
+    db: Session = Depends(get_db),
+) -> LabelStudioStatusSyncResponse:
+    service = PrelabelService(get_settings())
+    return service.sync_label_studio_status(db=db, task_id=task_id)

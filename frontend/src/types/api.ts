@@ -88,12 +88,22 @@ export interface TaskImageStatusItem {
   status: string;
   has_prediction: boolean;
   has_annotation: boolean;
+  prediction_status?: "none" | "written" | "failed";
+  annotation_status?: "unsaved" | "saved";
   label_studio_task_id?: number | null;
   label_studio_task_url?: string | null;
 }
 
 export interface TaskImagesResponse {
   task_id: string;
+  images: TaskImageStatusItem[];
+}
+
+export interface LabelStudioStatusSyncResponse {
+  task_id: string;
+  synced_count: number;
+  prediction_written_count: number;
+  annotation_saved_count: number;
   images: TaskImageStatusItem[];
 }
 

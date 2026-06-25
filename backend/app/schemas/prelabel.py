@@ -50,10 +50,20 @@ class TaskImageStatusItem(BaseModel):
     status: str
     has_prediction: bool
     has_annotation: bool
+    prediction_status: str = "none"
+    annotation_status: str = "unsaved"
     label_studio_task_id: int | None = None
     label_studio_task_url: str | None = None
 
 
 class TaskImageStatusResponse(BaseModel):
     task_id: str
+    images: list[TaskImageStatusItem]
+
+
+class LabelStudioStatusSyncResponse(BaseModel):
+    task_id: str
+    synced_count: int
+    prediction_written_count: int
+    annotation_saved_count: int
     images: list[TaskImageStatusItem]

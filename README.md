@@ -452,6 +452,12 @@ Workbench notes:
 - if the iframe is blocked by local browser or Label Studio security settings, use `在新窗口打开 Label Studio`
 - after AI prelabel finishes, confirm or revise annotations in Label Studio and then return to the frontend to refresh status and export
 
+Status sync notes:
+
+- after saving annotations in Label Studio, return to the frontend and click `同步 Label Studio 状态`
+- the frontend will pull the latest prediction and annotation status from Label Studio and update the task image table
+- if the embedded iframe shows the login page, log in to local Label Studio first and then return to the frontend to continue syncing and reviewing
+
 ## 6. Standard Local Startup
 
 Use the standard local ports below for day-to-day development:

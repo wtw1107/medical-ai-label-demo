@@ -10,6 +10,23 @@ interface ImageStatusTableProps {
   onEnterLabel?: (image: TaskImageStatusItem) => void;
 }
 
+function renderPredictionStatus(status?: string) {
+  if (status === "written") {
+    return <Tag color="success">已写入</Tag>;
+  }
+  if (status === "failed") {
+    return <Tag color="error">失败</Tag>;
+  }
+  return <Tag color="default">未生成</Tag>;
+}
+
+function renderAnnotationStatus(status?: string) {
+  if (status === "saved") {
+    return <Tag color="success">已保存</Tag>;
+  }
+  return <Tag color="default">未保存</Tag>;
+}
+
 export function ImageStatusTable({ images, loading, onEnterLabel }: ImageStatusTableProps) {
   const columns: ColumnsType<TaskImageStatusItem> = [
     {
@@ -26,15 +43,15 @@ export function ImageStatusTable({ images, loading, onEnterLabel }: ImageStatusT
     },
     {
       title: "AI Prediction",
-      dataIndex: "has_prediction",
-      key: "has_prediction",
-      render: (value: boolean) => <Tag color={value ? "success" : "default"}>{value ? "已写入" : "未写入"}</Tag>,
+      dataIndex: "prediction_status",
+      key: "prediction_status",
+      render: (value: string | undefined) => renderPredictionStatus(value),
     },
     {
       title: "人工 Annotation",
-      dataIndex: "has_annotation",
-      key: "has_annotation",
-      render: (value: boolean) => <Tag color={value ? "success" : "default"}>{value ? "已保存" : "未保存"}</Tag>,
+      dataIndex: "annotation_status",
+      key: "annotation_status",
+      render: (value: string | undefined) => renderAnnotationStatus(value),
     },
     {
       title: "操作",

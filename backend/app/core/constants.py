@@ -67,3 +67,14 @@ class ExportFormat(StrEnum):
 class ExportRange(StrEnum):
     CONFIRMED_ONLY = "confirmed_only"
     ALL = "all"
+
+
+class PredictionStatus(StrEnum):
+    NONE = "none"
+    WRITTEN = "written"
+    FAILED = "failed"
+
+
+class AnnotationStatus(StrEnum):
+    UNSAVED = "unsaved"
+    SAVED = "saved"

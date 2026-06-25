@@ -7,9 +7,17 @@ from sqlalchemy.orm import Session
 
 from app.converters.label_studio_prediction_converter import build_prediction_bundle
 from app.core.config import Settings
-from app.core.constants import AnnotationTaskStatus, ImageStatus, PrelabelJobStatus, TaskType
+from app.core.constants import (
+    AnnotationStatus,
+    AnnotationTaskStatus,
+    ImageStatus,
+    PredictionStatus,
+    PrelabelJobStatus,
+    TaskType,
+)
 from app.db.models import AnnotationTask, ImageItem, PrelabelJob
 from app.schemas.prelabel import (
+    LabelStudioStatusSyncResponse,
     PrelabelJobStatusResponse,
     PrelabelRunResponse,
     TaskImageStatusItem,
@@ -162,6 +170,27 @@ class PrelabelService:
         )
 
     def list_task_images(self, *, db: Session, task_id: str) -> TaskImageStatusResponse:
+        task, image_statuses = self._collect_task_image_statuses(db=db, task_id=task_id)
+        return TaskImageStatusResponse(task_id=task.id, images=image_statuses)
+
+    def sync_label_studio_status(self, *, db: Session, task_id: str) -> LabelStudioStatusSyncResponse:
+        task, image_statuses = self._collect_task_image_statuses(db=db, task_id=task_id)
+        prediction_written_count = sum(1 for image in image_statuses if image.prediction_status == PredictionStatus.WRITTEN.value)
+        annotation_saved_count = sum(1 for image in image_statuses if image.annotation_status == AnnotationStatus.SAVED.value)
+        return LabelStudioStatusSyncResponse(
+            task_id=task.id,
+            synced_count=len(image_statuses),
+            prediction_written_count=prediction_written_count,
+            annotation_saved_count=annotation_saved_count,
+            images=image_statuses,
+        )
+
+    def _collect_task_image_statuses(
+        self,
+        *,
+        db: Session,
+        task_id: str,
+    ) -> tuple[AnnotationTask, list[TaskImageStatusItem]]:
         task = db.get(AnnotationTask, task_id)
         if task is None:
             raise HTTPException(status_code=404, detail=f"Annotation task not found: {task_id}")
@@ -183,6 +212,8 @@ class PrelabelService:
             remote_task = remote_tasks.get(image.label_studio_task_id or -1)
             has_prediction = bool(remote_task and remote_task.get("total_predictions", 0) > 0)
             has_annotation = bool(remote_task and remote_task.get("total_annotations", 0) > 0)
+            prediction_status = self._prediction_status(image=image, has_prediction=has_prediction)
+            annotation_status = AnnotationStatus.SAVED.value if has_annotation else AnnotationStatus.UNSAVED.value
             image_statuses.append(
                 TaskImageStatusItem(
                     image_id=image.id,
@@ -190,6 +221,8 @@ class PrelabelService:
                     status=image.status,
                     has_prediction=has_prediction,
                     has_annotation=has_annotation,
+                    prediction_status=prediction_status,
+                    annotation_status=annotation_status,
                     label_studio_task_id=image.label_studio_task_id,
                     label_studio_task_url=self.label_studio_service.build_task_url(
                         task.label_studio_project_url,
@@ -199,7 +232,14 @@ class PrelabelService:
             )
 
         db.commit()
-        return TaskImageStatusResponse(task_id=task.id, images=image_statuses)
+        return task, image_statuses
+
+    def _prediction_status(self, *, image: ImageItem, has_prediction: bool) -> str:
+        if has_prediction:
+            return PredictionStatus.WRITTEN.value
+        if image.status == ImageStatus.PRELABEL_FAILED.value:
+            return PredictionStatus.FAILED.value
+        return PredictionStatus.NONE.value
 
     def _predict_for_image(
         self,

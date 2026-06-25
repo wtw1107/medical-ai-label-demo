@@ -89,7 +89,7 @@ export function WorkbenchPanel({
         <Alert
           type="success"
           showIcon
-          message="AI 预标注结果已经写入 Label Studio prediction。请在工作台中确认或修正后保存 annotation。保存后可回到本页面刷新状态并导出。"
+          message="AI 预标注结果已经写入 Label Studio prediction。请在工作台中确认或修正后保存 annotation。保存后可回到本页面同步状态并导出。"
         />
         <div className="workbench-meta">
           <Typography.Text strong>
