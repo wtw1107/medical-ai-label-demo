@@ -190,6 +190,11 @@ class PrelabelService:
                     status=image.status,
                     has_prediction=has_prediction,
                     has_annotation=has_annotation,
+                    label_studio_task_id=image.label_studio_task_id,
+                    label_studio_task_url=self.label_studio_service.build_task_url(
+                        task.label_studio_project_url,
+                        image.label_studio_task_id,
+                    ),
                 )
             )
 

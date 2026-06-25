@@ -1,5 +1,5 @@
-import { Alert, Button, Card, Col, Descriptions, Empty, Row, Space, Typography, message } from "antd";
-import { useEffect, useState } from "react";
+import { Alert, Button, Card, Descriptions, Empty, Space, Tabs, Typography, message } from "antd";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { getTaskImages } from "../api/prelabel";
@@ -8,6 +8,7 @@ import { ExportPanel } from "../components/ExportPanel";
 import { ImageStatusTable } from "../components/ImageStatusTable";
 import { PrelabelPanel } from "../components/PrelabelPanel";
 import { StatusTag } from "../components/StatusTag";
+import { WorkbenchPanel } from "../components/WorkbenchPanel";
 import type { AnnotationTaskDetail, TaskImageStatusItem } from "../types/api";
 
 export function TaskDetailPage() {
@@ -15,6 +16,9 @@ export function TaskDetailPage() {
   const [task, setTask] = useState<AnnotationTaskDetail | null>(null);
   const [images, setImages] = useState<TaskImageStatusItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTabKey, setActiveTabKey] = useState("overview");
+  const [selectedWorkbenchImage, setSelectedWorkbenchImage] = useState<TaskImageStatusItem | null>(null);
+  const [iframeRefreshKey, setIframeRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!taskId) {
@@ -39,7 +43,7 @@ export function TaskDetailPage() {
         }
         setTask(null);
         setImages([]);
-        message.error(error instanceof Error ? error.message : "加载任务详情失败");
+        message.error(error instanceof Error ? error.message : "加载任务详情失败。");
       } finally {
         if (active) {
           setLoading(false);
@@ -59,14 +63,13 @@ export function TaskDetailPage() {
       return;
     }
 
-    const currentTaskId = taskId;
     try {
       setLoading(true);
-      const [taskDetail, taskImages] = await Promise.all([getTaskDetail(currentTaskId), getTaskImages(currentTaskId)]);
+      const [taskDetail, taskImages] = await Promise.all([getTaskDetail(taskId), getTaskImages(taskId)]);
       setTask(taskDetail);
       setImages(taskImages.images);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "刷新任务状态失败");
+      message.error(error instanceof Error ? error.message : "刷新任务状态失败。");
     } finally {
       setLoading(false);
     }
@@ -76,13 +79,33 @@ export function TaskDetailPage() {
     if (!taskId) {
       return;
     }
+
     try {
       const result = await getLabelStudioUrl(taskId);
       window.open(result.url, "_blank", "noopener,noreferrer");
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "打开 Label Studio 失败");
+      message.error(error instanceof Error ? error.message : "打开 Label Studio 失败。");
     }
   };
+
+  const handleEnterLabel = (image: TaskImageStatusItem) => {
+    if (!image.label_studio_task_url) {
+      message.warning("暂无 task URL，请先同步或重新创建任务。");
+      return;
+    }
+
+    setSelectedWorkbenchImage(image);
+    setActiveTabKey("workbench");
+    setIframeRefreshKey((value) => value + 1);
+  };
+
+  const selectedImage = useMemo(() => {
+    if (!selectedWorkbenchImage) {
+      return null;
+    }
+
+    return images.find((image) => image.image_id === selectedWorkbenchImage.image_id) || selectedWorkbenchImage;
+  }, [images, selectedWorkbenchImage]);
 
   if (!taskId) {
     return <Empty description="未找到任务 ID" />;
@@ -99,11 +122,11 @@ export function TaskDetailPage() {
             {task ? <StatusTag status={task.status} /> : null}
           </Space>
           <Typography.Paragraph className="hero-description">
-            这里展示当前 AI 辅助标注任务的核心状态。你可以先触发预标注，再跳转 Label Studio 完成人工审核，最后回到这里发起导出。
+            这里汇总当前 AI 辅助标注任务的关键状态。你可以在本页查看图像状态、触发预标注、进入内嵌工作台完成人工确认，并在确认后导出结果。
           </Typography.Paragraph>
           <Space wrap>
             <Button type="primary" size="large" onClick={handleOpenLabelStudio} disabled={!task}>
-              打开 Label Studio 工作台
+              在新窗口打开 Label Studio
             </Button>
             <Button size="large" onClick={() => void refreshTask()} loading={loading}>
               刷新任务状态
@@ -113,38 +136,73 @@ export function TaskDetailPage() {
         </Space>
       </Card>
 
-      <Row gutter={[24, 24]}>
-        <Col xs={24} xl={10}>
-          <Card title="任务信息" className="panel-card" loading={loading}>
-            {task ? (
-              <Descriptions column={1} size="small">
-                <Descriptions.Item label="任务 ID">{task.task_id}</Descriptions.Item>
-                <Descriptions.Item label="数据集 ID">{task.dataset_id}</Descriptions.Item>
-                <Descriptions.Item label="任务类型">{task.task_type}</Descriptions.Item>
-                <Descriptions.Item label="标签名称">{task.label_name}</Descriptions.Item>
-                <Descriptions.Item label="检测模型">{task.det_model_id || "未设置"}</Descriptions.Item>
-                <Descriptions.Item label="分割模型">{task.seg_model_id || "未设置"}</Descriptions.Item>
-                <Descriptions.Item label="人工确认">{task.require_human_confirm ? "需要" : "不需要"}</Descriptions.Item>
-              </Descriptions>
-            ) : (
-              <Empty description="暂无任务信息" />
-            )}
-          </Card>
-        </Col>
-        <Col xs={24} xl={14}>
-          <PrelabelPanel taskId={taskId} onCompleted={refreshTask} />
-        </Col>
-      </Row>
-
-      <Card
-        title="图像状态总览"
-        className="panel-card"
-        extra={<Typography.Text>共 {images.length} 张</Typography.Text>}
-      >
-        <ImageStatusTable images={images} loading={loading} />
-      </Card>
-
-      <ExportPanel taskId={taskId} onExported={refreshTask} />
+      <Tabs
+        activeKey={activeTabKey}
+        onChange={setActiveTabKey}
+        className="task-detail-tabs"
+        items={[
+          {
+            key: "overview",
+            label: "任务概览",
+            children: (
+              <Card title="任务信息" className="panel-card" loading={loading}>
+                {task ? (
+                  <Descriptions column={1} size="small">
+                    <Descriptions.Item label="任务 ID">{task.task_id}</Descriptions.Item>
+                    <Descriptions.Item label="数据集 ID">{task.dataset_id}</Descriptions.Item>
+                    <Descriptions.Item label="任务类型">{task.task_type}</Descriptions.Item>
+                    <Descriptions.Item label="标签名称">{task.label_name}</Descriptions.Item>
+                    <Descriptions.Item label="检测模型">{task.det_model_id || "未设置"}</Descriptions.Item>
+                    <Descriptions.Item label="分割模型">{task.seg_model_id || "未设置"}</Descriptions.Item>
+                    <Descriptions.Item label="人工确认">{task.require_human_confirm ? "需要" : "不需要"}</Descriptions.Item>
+                    <Descriptions.Item label="Label Studio 项目 ID">
+                      {task.label_studio_project_id ?? "未初始化"}
+                    </Descriptions.Item>
+                  </Descriptions>
+                ) : (
+                  <Empty description="暂无任务信息" />
+                )}
+              </Card>
+            ),
+          },
+          {
+            key: "images",
+            label: "图像状态",
+            children: (
+              <Card
+                title="图像状态总览"
+                className="panel-card"
+                extra={<Typography.Text>共 {images.length} 张</Typography.Text>}
+              >
+                <ImageStatusTable images={images} loading={loading} onEnterLabel={handleEnterLabel} />
+              </Card>
+            ),
+          },
+          {
+            key: "prelabel",
+            label: "AI 预标注",
+            children: <PrelabelPanel taskId={taskId} onCompleted={refreshTask} />,
+          },
+          {
+            key: "workbench",
+            label: "标注工作台",
+            children: (
+              <WorkbenchPanel
+                projectUrl={task?.label_studio_project_url || null}
+                taskUrl={selectedImage?.label_studio_task_url || null}
+                selectedImageName={selectedImage?.filename || null}
+                onOpenExternal={(url) => window.open(url, "_blank", "noopener,noreferrer")}
+                refreshToken={iframeRefreshKey}
+              />
+            ),
+          },
+          {
+            key: "export",
+            label: "导出结果",
+            children: <ExportPanel taskId={taskId} onExported={refreshTask} />,
+          },
+        ]}
+      />
     </Space>
   );
 }

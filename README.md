@@ -441,8 +441,16 @@ The frontend MVP currently covers:
 - dataset upload and task creation
 - task detail and image status overview
 - AI prelabel trigger and job status display
-- jump to Label Studio for human review
+- embedded Label Studio workbench for in-page review
+- image-level "进入标注" entry from the task image table
+- fallback open-in-new-window entry for Label Studio
 - export creation and zip download
+
+Workbench notes:
+
+- first-time users should log in to the local Label Studio instance before using the embedded workbench
+- if the iframe is blocked by local browser or Label Studio security settings, use `在新窗口打开 Label Studio`
+- after AI prelabel finishes, confirm or revise annotations in Label Studio and then return to the frontend to refresh status and export
 
 ## 6. Standard Local Startup
 

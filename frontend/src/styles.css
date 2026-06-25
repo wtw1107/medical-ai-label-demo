@@ -102,6 +102,50 @@ a {
   margin-bottom: 0;
 }
 
+.task-detail-tabs .ant-tabs-nav {
+  margin-bottom: 20px;
+}
+
+.task-detail-tabs .ant-tabs-tab {
+  font-weight: 600;
+}
+
+.workbench-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.workbench-frame-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.workbench-frame {
+  width: 100%;
+  min-height: 780px;
+  border: 0;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+:fullscreen .workbench-frame-shell,
+:-ms-fullscreen .workbench-frame-shell,
+:-webkit-full-screen .workbench-frame-shell {
+  height: 100vh;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+:fullscreen .workbench-frame,
+:-ms-fullscreen .workbench-frame,
+:-webkit-full-screen .workbench-frame {
+  min-height: calc(100vh - 32px);
+  border-radius: 0;
+}
+
 .upload-dragger {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(240, 253, 250, 0.94));
 }
@@ -113,5 +157,9 @@ a {
 
   .app-content {
     padding: 20px 18px 32px;
+  }
+
+  .workbench-frame {
+    min-height: 560px;
   }
 }

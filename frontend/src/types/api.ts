@@ -88,6 +88,8 @@ export interface TaskImageStatusItem {
   status: string;
   has_prediction: boolean;
   has_annotation: boolean;
+  label_studio_task_id?: number | null;
+  label_studio_task_url?: string | null;
 }
 
 export interface TaskImagesResponse {

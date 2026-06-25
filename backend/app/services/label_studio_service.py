@@ -128,6 +128,11 @@ class LabelStudioService:
     def _project_url(self, project_id: int) -> str:
         return f"{self.base_url}/projects/{project_id}/data"
 
+    def build_task_url(self, project_url: str | None, label_studio_task_id: int | None) -> str | None:
+        if not project_url or label_studio_task_id is None:
+            return None
+        return f"{project_url}?task={label_studio_task_id}"
+
     def _load_label_config(self, task_type: str) -> str:
         try:
             path = self.settings.get_label_config_path(task_type)

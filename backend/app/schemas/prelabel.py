@@ -50,6 +50,8 @@ class TaskImageStatusItem(BaseModel):
     status: str
     has_prediction: bool
     has_annotation: bool
+    label_studio_task_id: int | None = None
+    label_studio_task_url: str | None = None
 
 
 class TaskImageStatusResponse(BaseModel):
