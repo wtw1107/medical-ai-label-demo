@@ -36,10 +36,12 @@ data/exports/
 data/label-studio/
 
 # Model weights
+models/weights/
 *.pt
 *.pth
 *.onnx
 *.ckpt
+*.safetensors
 model_service/models/*.pt
 model_service/models/*.pth
 model_service/models/*.onnx
