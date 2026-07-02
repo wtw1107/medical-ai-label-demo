@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass
 
@@ -9,10 +10,17 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.core.constants import AnnotationTaskStatus
+from app.core.constants import AnnotationTaskStatus, ImageStatus
 from app.db.models import AnnotationTask, Dataset, ImageItem
 from app.db.session import engine
-from app.schemas.task import AnnotationTaskCreate, AnnotationTaskCreateResponse, AnnotationTaskUrlResponse
+from app.schemas.task import (
+    AnnotationTaskCreate,
+    AnnotationTaskCreateResponse,
+    AnnotationTaskDetailResponse,
+    AnnotationTaskListItemResponse,
+    AnnotationTaskListResponse,
+    AnnotationTaskUrlResponse,
+)
 
 
 @dataclass
@@ -94,8 +102,38 @@ class LabelStudioService:
             trust_env=False,
         )
 
+    def _format_error_response(self, response: httpx.Response) -> str:
+        try:
+            body = response.json()
+        except (json.JSONDecodeError, ValueError):
+            return response.text
+
+        if isinstance(body, dict):
+            validation_errors = body.get("validation_errors")
+            if isinstance(validation_errors, dict):
+                messages: list[str] = []
+                for field, field_errors in validation_errors.items():
+                    if not isinstance(field_errors, list):
+                        continue
+                    for field_error in field_errors:
+                        if isinstance(field_error, str):
+                            messages.append(f"{field}: {field_error}")
+                if messages:
+                    return "; ".join(messages)
+
+            detail = body.get("detail")
+            if isinstance(detail, str) and detail:
+                return detail
+
+        return response.text
+
     def _project_url(self, project_id: int) -> str:
         return f"{self.base_url}/projects/{project_id}/data"
+
+    def build_task_url(self, project_url: str | None, label_studio_task_id: int | None) -> str | None:
+        if not project_url or label_studio_task_id is None:
+            return None
+        return f"{project_url}?task={label_studio_task_id}"
 
     def _load_label_config(self, task_type: str) -> str:
         try:
@@ -150,7 +188,7 @@ class LabelStudioService:
         if response.is_error:
             raise HTTPException(
                 status_code=502,
-                detail=f"Label Studio request failed: {response.text}",
+                detail=f"Label Studio request failed: {self._format_error_response(response)}",
             )
 
         body = response.json()
@@ -160,8 +198,9 @@ class LabelStudioService:
 
     def create_project(self, *, title: str, description: str | None, task_type: str) -> LabelStudioProject:
         label_config = self._load_label_config(task_type)
+        normalized_title = title.strip()
         payload = {
-            "title": title,
+            "title": normalized_title,
             "description": description,
             "label_config": label_config,
         }
@@ -366,3 +405,57 @@ class LabelStudioService:
                 detail="Label Studio project URL is not available for this task.",
             )
         return AnnotationTaskUrlResponse(url=task.label_studio_project_url)
+
+    def get_annotation_task(self, *, db: Session, task_id: str) -> AnnotationTaskDetailResponse:
+        task = db.get(AnnotationTask, task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail=f"Annotation task not found: {task_id}")
+        return AnnotationTaskDetailResponse(
+            task_id=task.id,
+            dataset_id=task.dataset_id,
+            name=task.name,
+            task_type=task.task_type,
+            label_name=task.label_name,
+            det_model_id=task.det_model_id,
+            seg_model_id=task.seg_model_id,
+            require_human_confirm=task.require_human_confirm,
+            label_studio_project_id=task.label_studio_project_id,
+            label_studio_project_url=task.label_studio_project_url,
+            status=task.status,
+            error_message=task.error_message,
+        )
+
+    def list_annotation_tasks(self, *, db: Session) -> AnnotationTaskListResponse:
+        tasks = db.query(AnnotationTask).order_by(AnnotationTask.created_at.desc()).all()
+        items: list[AnnotationTaskListItemResponse] = []
+
+        for task in tasks:
+            dataset = db.get(Dataset, task.dataset_id)
+            image_items = (
+                db.query(ImageItem)
+                .filter(ImageItem.dataset_id == task.dataset_id)
+                .order_by(ImageItem.created_at.asc())
+                .all()
+            )
+            prediction_written_count = sum(
+                1 for image in image_items if image.status == ImageStatus.PRELABEL_DONE.value
+            )
+            items.append(
+                AnnotationTaskListItemResponse(
+                    task_id=task.id,
+                    task_name=task.name,
+                    task_type=task.task_type,
+                    dataset_id=task.dataset_id,
+                    dataset_name=dataset.name if dataset is not None else None,
+                    image_count=dataset.image_count if dataset is not None else len(image_items),
+                    prediction_written_count=prediction_written_count,
+                    annotation_saved_count=0,
+                    label_studio_project_id=task.label_studio_project_id,
+                    label_studio_project_url=task.label_studio_project_url,
+                    created_at=task.created_at.isoformat(),
+                    updated_at=task.updated_at.isoformat(),
+                    status=task.status,
+                )
+            )
+
+        return AnnotationTaskListResponse(items=items, total=len(items))

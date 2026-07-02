@@ -12,6 +12,7 @@ from utils.image_loader import try_load_image_info
 
 class MockSegmentationService:
     model_version = "v0.1"
+    model_type = "segmentation"
 
     def predict(
         self,
@@ -27,6 +28,7 @@ class MockSegmentationService:
         return SegmentationPredictResponse(
             model_id=request.model_id,
             model_version=self.model_version,
+            model_type=self.model_type,
             results=[
                 SegmentationResult(
                     label="病灶轮廓",

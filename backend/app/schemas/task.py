@@ -1,13 +1,18 @@
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.core.constants import TaskType
+
+TaskName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=128)]
+LabelName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
 
 
 class AnnotationTaskBase(BaseModel):
     dataset_id: str
-    name: str
+    name: TaskName
     task_type: str = Field(default=TaskType.BBOX.value)
-    label_name: str
+    label_name: LabelName
     det_model_id: str | None = None
     seg_model_id: str | None = None
     require_human_confirm: bool = True
@@ -37,3 +42,39 @@ class AnnotationTaskCreateResponse(BaseModel):
 
 class AnnotationTaskUrlResponse(BaseModel):
     url: str
+
+
+class AnnotationTaskDetailResponse(BaseModel):
+    task_id: str
+    dataset_id: str
+    name: str
+    task_type: str
+    label_name: str
+    det_model_id: str | None = None
+    seg_model_id: str | None = None
+    require_human_confirm: bool
+    label_studio_project_id: int | None = None
+    label_studio_project_url: str | None = None
+    status: str
+    error_message: str | None = None
+
+
+class AnnotationTaskListItemResponse(BaseModel):
+    task_id: str
+    task_name: str
+    task_type: str
+    dataset_id: str
+    dataset_name: str | None = None
+    image_count: int = 0
+    prediction_written_count: int = 0
+    annotation_saved_count: int = 0
+    label_studio_project_id: int | None = None
+    label_studio_project_url: str | None = None
+    created_at: str
+    updated_at: str
+    status: str
+
+
+class AnnotationTaskListResponse(BaseModel):
+    items: list[AnnotationTaskListItemResponse]
+    total: int

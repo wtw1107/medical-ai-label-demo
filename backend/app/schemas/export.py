@@ -41,3 +41,15 @@ class ExportResponse(BaseModel):
     status: str
     file_path: str
     download_url: str
+
+
+class ExportStatusResponse(BaseModel):
+    export_id: str
+    task_id: str
+    format: str
+    range: str
+    status: str
+    file_path: str | None = None
+    download_url: str | None = None
+    total_count: int
+    error_message: str | None = None
