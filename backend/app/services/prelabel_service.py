@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -37,6 +38,9 @@ def utc_now() -> datetime:
 
 
 class PrelabelService:
+    sync_retry_max_retries = 2
+    sync_retry_interval_seconds = 1.0
+
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.model_client = ModelServiceClient(settings)
@@ -195,7 +199,7 @@ class PrelabelService:
         return TaskImageStatusResponse(task_id=task.id, images=image_statuses)
 
     def sync_label_studio_status(self, *, db: Session, task_id: str) -> LabelStudioStatusSyncResponse:
-        task, image_statuses = self._collect_task_image_statuses(db=db, task_id=task_id)
+        task, image_statuses = self._collect_task_image_statuses_with_retry(db=db, task_id=task_id)
         prediction_written_count = sum(1 for image in image_statuses if image.prediction_status == PredictionStatus.WRITTEN.value)
         annotation_saved_count = sum(1 for image in image_statuses if image.annotation_status == AnnotationStatus.SAVED.value)
         return LabelStudioStatusSyncResponse(
@@ -347,6 +351,32 @@ class PrelabelService:
 
         db.commit()
         return task, image_statuses
+
+    def _collect_task_image_statuses_with_retry(
+        self,
+        *,
+        db: Session,
+        task_id: str,
+    ) -> tuple[AnnotationTask, list[TaskImageStatusItem]]:
+        task, image_statuses = self._collect_task_image_statuses(db=db, task_id=task_id)
+        attempts = 0
+
+        while attempts < self.sync_retry_max_retries and self._should_retry_sync(image_statuses):
+            attempts += 1
+            time.sleep(self.sync_retry_interval_seconds)
+            task, image_statuses = self._collect_task_image_statuses(db=db, task_id=task_id)
+
+        return task, image_statuses
+
+    def _should_retry_sync(self, image_statuses: list[TaskImageStatusItem]) -> bool:
+        prelabel_done_count = sum(1 for image in image_statuses if image.status == ImageStatus.PRELABEL_DONE.value)
+        if prelabel_done_count == 0:
+            return False
+
+        prediction_written_count = sum(
+            1 for image in image_statuses if image.prediction_status == PredictionStatus.WRITTEN.value
+        )
+        return prediction_written_count < prelabel_done_count
 
     def _prediction_status(self, *, image: ImageItem, has_prediction: bool) -> str:
         if has_prediction:

@@ -212,6 +212,9 @@ export function TaskDetailPage() {
               刷新任务状态
             </Button>
           </Space>
+          <Typography.Text type="secondary">
+            Label Studio 写入后可能需要短暂刷新，同步状态时会自动重试 1-2 秒。
+          </Typography.Text>
           {task?.error_message ? <Alert type="warning" showIcon message={task.error_message} /> : null}
         </Space>
       </Card>
