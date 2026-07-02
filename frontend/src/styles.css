@@ -199,6 +199,25 @@ a {
   gap: 10px;
 }
 
+.model-console-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.model-summary-card {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.model-control-block {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+}
+
 .prediction-metadata-card,
 .export-summary-card {
   border: 1px solid rgba(15, 23, 42, 0.08);
@@ -220,5 +239,9 @@ a {
 
   .workbench-frame {
     min-height: 560px;
+  }
+
+  .model-console-grid {
+    grid-template-columns: 1fr;
   }
 }

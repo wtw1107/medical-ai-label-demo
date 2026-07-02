@@ -15,6 +15,16 @@ class ModelRegistryItem:
     model_version: str
     status: str
     description: str
+    deployment_type: str = "mock"
+    provider: str = "local_demo"
+    task_types: tuple[str, ...] = ()
+    anatomy: tuple[str, ...] = ()
+    modality: tuple[str, ...] = ()
+    outputs: tuple[str, ...] = ()
+    requires: dict[str, bool] | None = None
+    runtime: dict[str, str] | None = None
+    metrics: dict[str, int | str] | None = None
+    limitations: tuple[str, ...] = ()
 
 
 MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
@@ -25,6 +35,11 @@ MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
         model_version="mock-v1",
         status="available",
         description="Local mock detection model for bbox prelabel demos.",
+        deployment_type="mock",
+        provider="local_demo",
+        task_types=("bbox", "bbox_polygon"),
+        outputs=("bbox", "confidence", "metadata"),
+        limitations=("Synthetic demo predictions", "Not a real AI model"),
     ),
     "mock_segmentation": ModelRegistryItem(
         model_id="mock_segmentation",
@@ -33,6 +48,11 @@ MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
         model_version="mock-v1",
         status="available",
         description="Local mock segmentation model for polygon prelabel demos.",
+        deployment_type="mock",
+        provider="local_demo",
+        task_types=("polygon", "bbox_polygon"),
+        outputs=("polygon", "metadata"),
+        limitations=("Synthetic demo polygons", "Not a real segmentation model"),
     ),
     "real_detection_v1": ModelRegistryItem(
         model_id="real_detection_v1",
@@ -41,6 +61,36 @@ MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
         model_version="roboflow-v1",
         status="available",
         description="Roboflow-backed thyroid nodule detection demo model.",
+        deployment_type="external_api",
+        provider="Roboflow",
+        task_types=("bbox", "bbox_polygon"),
+        anatomy=("thyroid",),
+        modality=("ultrasound",),
+        outputs=("bbox", "confidence", "metadata"),
+        requires={
+            "api_key": True,
+            "network": True,
+            "gpu": False,
+            "local_weights": False,
+        },
+        runtime={
+            "api_key_env": "ROBOFLOW_API_KEY",
+            "api_url_env": "ROBOFLOW_API_URL",
+            "confidence_env": "ROBOFLOW_CONFIDENCE",
+        },
+        metrics={
+            "source": "local_tn5000_random_validation",
+            "scanned_image_count": 4998,
+            "tested_count": 10,
+            "images_with_detections": 3,
+            "total_detections": 3,
+        },
+        limitations=(
+            "Demo-only model",
+            "Not for clinical diagnosis",
+            "External API call may upload images to third-party service",
+            "Performance may vary across ultrasound devices and image distributions",
+        ),
     ),
     "real_segmentation_v1": ModelRegistryItem(
         model_id="real_segmentation_v1",
@@ -49,6 +99,11 @@ MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
         model_version="v1.0",
         status="not_configured",
         description="Reserved segmentation slot. Not configured in the MVP.",
+        deployment_type="local_model_placeholder",
+        provider="local",
+        task_types=("polygon", "bbox_polygon"),
+        requires={"local_weights": True},
+        limitations=("Not configured yet",),
     ),
 }
 

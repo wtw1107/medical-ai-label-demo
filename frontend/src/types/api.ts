@@ -3,6 +3,28 @@ export type ExportFormat = "label_studio_json" | "simple_json" | "mask_png";
 export type ExportRange = "confirmed_only";
 export type ModelType = "detection" | "segmentation";
 export type ModelStatus = "available" | "not_configured";
+export type ModelDeploymentType = "mock" | "external_api" | "local_model_placeholder";
+
+export interface ModelRequirements {
+  api_key?: boolean | null;
+  network?: boolean | null;
+  gpu?: boolean | null;
+  local_weights?: boolean | null;
+}
+
+export interface ModelRuntime {
+  api_key_env?: string | null;
+  api_url_env?: string | null;
+  confidence_env?: string | null;
+}
+
+export interface ModelMetrics {
+  source?: string | null;
+  scanned_image_count?: number | null;
+  tested_count?: number | null;
+  images_with_detections?: number | null;
+  total_detections?: number | null;
+}
 
 export interface UploadImageItem {
   id: string;
@@ -93,6 +115,16 @@ export interface ModelInfo {
   model_version: string;
   status: ModelStatus;
   description: string;
+  deployment_type?: ModelDeploymentType | null;
+  provider?: string | null;
+  task_types?: string[] | null;
+  anatomy?: string[] | null;
+  modality?: string[] | null;
+  outputs?: string[] | null;
+  requires?: ModelRequirements | null;
+  runtime?: ModelRuntime | null;
+  metrics?: ModelMetrics | null;
+  limitations?: string[] | null;
 }
 
 export interface ModelListResponse {

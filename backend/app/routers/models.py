@@ -16,6 +16,16 @@ def get_models() -> ModelListResponse:
             model_version=model.model_version,
             status=model.status,
             description=model.description,
+            deployment_type=model.deployment_type,
+            provider=model.provider,
+            task_types=list(model.task_types) or None,
+            anatomy=list(model.anatomy) or None,
+            modality=list(model.modality) or None,
+            outputs=list(model.outputs) or None,
+            requires=model.requires,
+            runtime=model.runtime,
+            metrics=model.metrics,
+            limitations=list(model.limitations) or None,
         )
         for model in list_models()
     ]
