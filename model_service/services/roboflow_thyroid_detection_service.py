@@ -24,7 +24,7 @@ class RoboflowThyroidDetectionService:
             "ROBOFLOW_THYROID_MODEL_ID",
             "thyroid-nodules-detection-test/3",
         ).strip()
-        self.confidence = confidence or self._read_confidence()
+        self.confidence = confidence if confidence is not None else self._read_confidence()
 
     @property
     def model_version(self) -> str:

@@ -203,3 +203,6 @@ The demo can optionally use the Roboflow Universe model
 - Keep the API key only in local environment variables or `.env`, never in Git.
 - The model is called through the Roboflow API and does not require local training.
 - This model is only used for demo validation and is not a clinical diagnostic model.
+- In the current integration stage, `real_detection_v1` is exposed through `/api/models` and can be selected for bbox / bbox_polygon prelabel.
+- `real_segmentation_v1` remains `not_configured`; bbox_polygon still pairs real detection with `mock_segmentation`.
+- If Roboflow returns `0 detections`, the request is treated as a valid model response rather than a system failure.

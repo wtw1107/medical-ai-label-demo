@@ -24,7 +24,7 @@ MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
         model_type="detection",
         model_version="mock-v1",
         status="available",
-        description="本地 mock 检测模型，用于演示 bbox 预标注流程。",
+        description="Local mock detection model for bbox prelabel demos.",
     ),
     "mock_segmentation": ModelRegistryItem(
         model_id="mock_segmentation",
@@ -32,15 +32,15 @@ MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
         model_type="segmentation",
         model_version="mock-v1",
         status="available",
-        description="本地 mock 分割模型，用于演示 polygon 预标注流程。",
+        description="Local mock segmentation model for polygon prelabel demos.",
     ),
     "real_detection_v1": ModelRegistryItem(
         model_id="real_detection_v1",
-        model_name="Real Detection Model v1",
+        model_name="Roboflow Thyroid Detection v1",
         model_type="detection",
-        model_version="v1.0",
-        status="not_configured",
-        description="真实检测模型占位配置，后续接入。",
+        model_version="roboflow-v1",
+        status="available",
+        description="Roboflow-backed thyroid nodule detection demo model.",
     ),
     "real_segmentation_v1": ModelRegistryItem(
         model_id="real_segmentation_v1",
@@ -48,7 +48,7 @@ MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
         model_type="segmentation",
         model_version="v1.0",
         status="not_configured",
-        description="真实分割模型占位配置，后续接入。",
+        description="Reserved segmentation slot. Not configured in the MVP.",
     ),
 }
 

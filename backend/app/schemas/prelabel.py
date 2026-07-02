@@ -90,6 +90,7 @@ class PredictionPreviewItem(BaseModel):
     model_version: str | None = None
     model_type: str | None = None
     created_at: str | None = None
+    meta: dict[str, object] | None = None
     value: PredictionPreviewValue
 
 

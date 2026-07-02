@@ -114,21 +114,20 @@ class PrelabelService:
                         detection_model_id=detection_model_id,
                         segmentation_model_id=segmentation_model_id,
                     )
-                    bundle = build_prediction_bundle(
-                        task_type=task.task_type,
-                        label_name=task.label_name,
-                        image_width=image.width,
-                        image_height=image.height,
+                    bundle = self._build_prediction_bundle_or_none(
+                        task=task,
+                        image=image,
                         detection=detection,
                         segmentation=segmentation,
                     )
-                    self.label_studio_service.create_prediction(
-                        project_id=task.label_studio_project_id,
-                        label_studio_task_id=image.label_studio_task_id,
-                        model_version=bundle.model_version,
-                        score=bundle.score,
-                        results=bundle.results,
-                    )
+                    if bundle is not None:
+                        self.label_studio_service.create_prediction(
+                            project_id=task.label_studio_project_id,
+                            label_studio_task_id=image.label_studio_task_id,
+                            model_version=bundle.model_version,
+                            score=bundle.score,
+                            results=bundle.results,
+                        )
                     image.status = ImageStatus.PRELABEL_DONE.value
                     image.error_message = None
                     success_count += 1
@@ -383,6 +382,7 @@ class PrelabelService:
                 model_version=self._safe_str(normalized_meta.get("model_version")),
                 model_type=self._safe_str(normalized_meta.get("model_type")),
                 created_at=self._safe_str(normalized_meta.get("created_at")),
+                meta=normalized_meta or None,
                 value=PredictionPreviewValue(
                     x=self._safe_float(value.get("x")),
                     y=self._safe_float(value.get("y")),
@@ -414,6 +414,7 @@ class PrelabelService:
             model_version=self._safe_str(normalized_meta.get("model_version")),
             model_type=self._safe_str(normalized_meta.get("model_type")),
             created_at=self._safe_str(normalized_meta.get("created_at")),
+            meta=normalized_meta or None,
             value=PredictionPreviewValue(points=normalized_points),
         )
 
@@ -499,14 +500,44 @@ class PrelabelService:
                 model_id=segmentation_model_id or "mock_segmentation",
             )
         elif task.task_type == TaskType.BBOX_POLYGON.value:
-            if not detection or not detection.get("results"):
-                raise ValueError("Detection results are missing for bbox_polygon prelabel.")
-            bbox_prompt = detection["results"][0]["bbox"]
-            segmentation = self.model_client.predict_segmentation(
-                image_url=image.file_url,
-                image_id=image.id,
-                model_id=segmentation_model_id or "mock_segmentation",
-                bbox_prompt=bbox_prompt,
-            )
+            detection_results = detection.get("results") if isinstance(detection, dict) else None
+            if isinstance(detection_results, list) and detection_results:
+                bbox_prompt = detection_results[0]["bbox"]
+                segmentation = self.model_client.predict_segmentation(
+                    image_url=image.file_url,
+                    image_id=image.id,
+                    model_id=segmentation_model_id or "mock_segmentation",
+                    bbox_prompt=bbox_prompt,
+                )
 
         return detection, segmentation
+
+    def _build_prediction_bundle_or_none(
+        self,
+        *,
+        task: AnnotationTask,
+        image: ImageItem,
+        detection: dict[str, object] | None,
+        segmentation: dict[str, object] | None,
+    ):
+        if task.task_type == TaskType.BBOX.value and not self._has_results(detection):
+            return None
+        if task.task_type == TaskType.POLYGON.value and not self._has_results(segmentation):
+            return None
+        if task.task_type == TaskType.BBOX_POLYGON.value and not self._has_results(detection):
+            return None
+
+        return build_prediction_bundle(
+            task_type=task.task_type,
+            label_name=task.label_name,
+            image_width=image.width,
+            image_height=image.height,
+            detection=detection,
+            segmentation=segmentation,
+        )
+
+    def _has_results(self, payload: dict[str, object] | None) -> bool:
+        if not isinstance(payload, dict):
+            return False
+        results = payload.get("results")
+        return isinstance(results, list) and len(results) > 0

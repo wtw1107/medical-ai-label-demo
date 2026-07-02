@@ -11,7 +11,7 @@ class HealthResponse(BaseModel):
 class PredictionRequestBase(BaseModel):
     image_url: str = Field(..., description="Publicly accessible image URL.")
     image_id: str = Field(..., description="Image identifier from the backend.")
-    model_id: str = Field(..., description="Requested mock model identifier.")
+    model_id: str = Field(..., description="Requested model identifier.")
 
 
 class DetectionPredictRequest(PredictionRequestBase):
@@ -38,12 +38,14 @@ class DetectionResult(BaseModel):
     label: str
     bbox: list[int] = Field(..., min_length=4, max_length=4)
     score: float
+    meta: dict[str, Any] | None = None
 
 
 class SegmentationResult(BaseModel):
     label: str
     polygon: list[list[int]]
     score: float
+    meta: dict[str, Any] | None = None
 
 
 class DetectionPredictResponse(BaseModel):
