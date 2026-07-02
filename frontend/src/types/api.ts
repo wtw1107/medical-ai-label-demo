@@ -15,6 +15,7 @@ export interface ModelRequirements {
 export interface ModelRuntime {
   api_key_env?: string | null;
   api_url_env?: string | null;
+  model_id_env?: string | null;
   confidence_env?: string | null;
 }
 
@@ -22,8 +23,10 @@ export interface ModelMetrics {
   source?: string | null;
   scanned_image_count?: number | null;
   tested_count?: number | null;
+  api_success_count?: number | null;
   images_with_detections?: number | null;
   total_detections?: number | null;
+  confidence?: number | null;
 }
 
 export interface UploadImageItem {

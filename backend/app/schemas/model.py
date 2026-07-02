@@ -11,6 +11,7 @@ class ModelRequirementsResponse(BaseModel):
 class ModelRuntimeResponse(BaseModel):
     api_key_env: str | None = None
     api_url_env: str | None = None
+    model_id_env: str | None = None
     confidence_env: str | None = None
 
 
@@ -18,8 +19,10 @@ class ModelMetricsResponse(BaseModel):
     source: str | None = None
     scanned_image_count: int | None = None
     tested_count: int | None = None
+    api_success_count: int | None = None
     images_with_detections: int | None = None
     total_detections: int | None = None
+    confidence: float | None = None
 
 
 class ModelInfoResponse(BaseModel):

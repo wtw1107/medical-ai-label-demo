@@ -218,6 +218,11 @@ a {
   background: rgba(255, 255, 255, 0.7);
 }
 
+.prelabel-action-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .prediction-metadata-card,
 .export-summary-card {
   border: 1px solid rgba(15, 23, 42, 0.08);

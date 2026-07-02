@@ -23,7 +23,7 @@ class ModelRegistryItem:
     outputs: tuple[str, ...] = ()
     requires: dict[str, bool] | None = None
     runtime: dict[str, str] | None = None
-    metrics: dict[str, int | str] | None = None
+    metrics: dict[str, int | float | str] | None = None
     limitations: tuple[str, ...] = ()
 
 
@@ -39,7 +39,17 @@ MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
         provider="local_demo",
         task_types=("bbox", "bbox_polygon"),
         outputs=("bbox", "confidence", "metadata"),
-        limitations=("Synthetic demo predictions", "Not a real AI model"),
+        requires={
+            "api_key": False,
+            "network": False,
+            "gpu": False,
+            "local_weights": False,
+        },
+        limitations=(
+            "Synthetic demo predictions.",
+            "Not a real AI model.",
+            "Use only for workflow testing.",
+        ),
     ),
     "mock_segmentation": ModelRegistryItem(
         model_id="mock_segmentation",
@@ -52,13 +62,23 @@ MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
         provider="local_demo",
         task_types=("polygon", "bbox_polygon"),
         outputs=("polygon", "metadata"),
-        limitations=("Synthetic demo polygons", "Not a real segmentation model"),
+        requires={
+            "api_key": False,
+            "network": False,
+            "gpu": False,
+            "local_weights": False,
+        },
+        limitations=(
+            "Synthetic demo polygons.",
+            "Not a real segmentation model.",
+            "Use only for workflow testing.",
+        ),
     ),
     "real_detection_v1": ModelRegistryItem(
         model_id="real_detection_v1",
         model_name="Roboflow Thyroid Detection v1",
         model_type="detection",
-        model_version="roboflow-v1",
+        model_version="roboflow-thyroid-nodules-detection-test-3",
         status="available",
         description="Roboflow-backed thyroid nodule detection demo model.",
         deployment_type="external_api",
@@ -76,20 +96,24 @@ MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
         runtime={
             "api_key_env": "ROBOFLOW_API_KEY",
             "api_url_env": "ROBOFLOW_API_URL",
+            "model_id_env": "ROBOFLOW_THYROID_MODEL_ID",
             "confidence_env": "ROBOFLOW_CONFIDENCE",
         },
         metrics={
             "source": "local_tn5000_random_validation",
             "scanned_image_count": 4998,
             "tested_count": 10,
+            "api_success_count": 10,
             "images_with_detections": 3,
             "total_detections": 3,
+            "confidence": 0.05,
         },
         limitations=(
-            "Demo-only model",
-            "Not for clinical diagnosis",
-            "External API call may upload images to third-party service",
-            "Performance may vary across ultrasound devices and image distributions",
+            "Demo-only model for AI-assisted pre-annotation.",
+            "Not for clinical diagnosis.",
+            "Calls an external Roboflow API; images may be sent to a third-party service.",
+            "Performance may vary across ultrasound devices and image distributions.",
+            "0 detections will not be written as empty predictions.",
         ),
     ),
     "real_segmentation_v1": ModelRegistryItem(
@@ -102,8 +126,18 @@ MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
         deployment_type="local_model_placeholder",
         provider="local",
         task_types=("polygon", "bbox_polygon"),
-        requires={"local_weights": True},
-        limitations=("Not configured yet",),
+        outputs=("polygon", "mask", "metadata"),
+        requires={
+            "api_key": False,
+            "network": False,
+            "gpu": True,
+            "local_weights": True,
+        },
+        limitations=(
+            "Not configured yet.",
+            "Local model weights are required before use.",
+            "This model cannot be selected for prelabel until configured.",
+        ),
     ),
 }
 
