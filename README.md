@@ -194,3 +194,12 @@ models/weights/dino_detection/best.pth
 - 状态同步
 - AI 只读预览
 - simple_json / label_studio_json / mask_png 导出
+## 7. Roboflow thyroid detection demo
+
+The demo can optionally use the Roboflow Universe model
+`thyroid-nodules-detection-test/3` as a real thyroid nodule detection backend.
+
+- Set `ROBOFLOW_API_KEY` before running the validation script.
+- Keep the API key only in local environment variables or `.env`, never in Git.
+- The model is called through the Roboflow API and does not require local training.
+- This model is only used for demo validation and is not a clinical diagnostic model.
