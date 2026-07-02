@@ -60,7 +60,6 @@ class RoboflowThyroidDetectionService:
 
     def _run_inference(self, image_path: Path) -> dict[str, Any]:
         client = self._build_client()
-        client.inference_configuration.confidence_threshold = self.confidence
         return client.infer(str(image_path), model_id=self.roboflow_model_id)
 
     def _normalize_prediction(self, prediction: dict[str, Any]) -> dict[str, Any]:
@@ -68,6 +67,7 @@ class RoboflowThyroidDetectionService:
         center_y = float(prediction.get("y", 0))
         width = float(prediction.get("width", 0))
         height = float(prediction.get("height", 0))
+        raw_confidence = float(prediction.get("confidence", prediction.get("score", 0.0)))
 
         left = center_x - (width / 2)
         top = center_y - (height / 2)
@@ -84,7 +84,7 @@ class RoboflowThyroidDetectionService:
 
         return {
             "label": label,
-            "score": float(prediction.get("confidence", prediction.get("score", 0.0))),
+            "score": raw_confidence,
             "bbox": {
                 "x": int(round(left)),
                 "y": int(round(top)),
@@ -96,17 +96,23 @@ class RoboflowThyroidDetectionService:
                 "roboflow_model_id": self.roboflow_model_id,
                 "class": label,
                 "class_id": class_id,
+                "raw_confidence": raw_confidence,
+                "local_confidence_threshold": self.confidence,
             },
         }
 
     def _build_platform_response(self, predictions: list[dict[str, Any]]) -> dict[str, Any]:
+        parsed_predictions = [
+            self._normalize_prediction(prediction)
+            for prediction in predictions
+            if float(prediction.get("confidence", prediction.get("score", 0.0)))
+            >= self.confidence
+        ]
         return {
             "model_id": "real_detection_v1",
             "model_version": self.model_version,
             "model_type": self.model_type,
-            "predictions": [
-                self._normalize_prediction(prediction) for prediction in predictions
-            ],
+            "predictions": parsed_predictions,
         }
 
     def predict_raw(self, image_path: str | Path) -> dict[str, Any]:
@@ -130,6 +136,7 @@ class RoboflowThyroidDetectionService:
             platform_result["debug"] = {
                 "confidence": self.confidence,
                 "raw_prediction_count": len(predictions),
+                "parsed_prediction_count": len(platform_result["predictions"]),
             }
 
         return platform_result

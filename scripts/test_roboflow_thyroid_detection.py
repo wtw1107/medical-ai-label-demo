@@ -39,7 +39,7 @@ def main() -> int:
         service = RoboflowThyroidDetectionService()
         result = service.predict_image(image_path, include_raw=True)
     except Exception as exc:
-        print(str(exc))
+        print(f"api_error={exc}")
         return 1
 
     predictions = result.get("predictions", [])
@@ -73,6 +73,11 @@ def main() -> int:
             indent=2,
         )
     )
+
+    if len(raw_predictions) == 0:
+        print("Roboflow API call succeeded, but raw predictions is empty.")
+    elif len(predictions) == 0:
+        print("Raw predictions returned, but all were filtered by local confidence threshold.")
 
     return 0
 
