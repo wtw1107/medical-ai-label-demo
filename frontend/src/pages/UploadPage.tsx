@@ -1,3 +1,4 @@
+import React from "react";
 import { InboxOutlined } from "@ant-design/icons";
 import { Alert, Button, Card, Col, Form, Input, Radio, Row, Space, Steps, Switch, Typography, Upload, message } from "antd";
 import type { RcFile, UploadFile } from "antd/es/upload/interface";
