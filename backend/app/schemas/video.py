@@ -55,6 +55,14 @@ class VideoItemRead(BaseModel):
     deid_status: str = DeidentificationStatus.UNKNOWN.value
     status: str
     error_message: str | None = None
+    quality: str = VideoQuality.UNKNOWN.value
+    bline_grade: str = BLineGrade.UNKNOWN.value
+    uncertain_flag: bool = False
+    include_in_training: bool = True
+    review_comment: str | None = None
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
+    keyframe_count: int = 0
     created_at: datetime
     updated_at: datetime
 

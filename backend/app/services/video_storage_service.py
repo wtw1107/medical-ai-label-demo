@@ -10,10 +10,12 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.constants import (
+    BLineGrade,
     DataType,
     DatasetSplit,
     DatasetStatus,
     DeidentificationStatus,
+    VideoQuality,
     VideoItemStatus,
 )
 from app.db.models import Dataset, Patient, VideoItem
@@ -148,6 +150,9 @@ def _store_video_bytes(
 
 
 def _serialize_video_item(video: VideoItem) -> VideoItemRead:
+    latest_review = None
+    if video.reviews:
+        latest_review = max(video.reviews, key=lambda item: item.created_at)
     return VideoItemRead(
         id=video.id,
         dataset_id=video.dataset_id,
@@ -171,6 +176,14 @@ def _serialize_video_item(video: VideoItem) -> VideoItemRead:
         deid_status=video.deid_status,
         status=video.status,
         error_message=video.error_message,
+        quality=latest_review.quality if latest_review is not None else VideoQuality.UNKNOWN.value,
+        bline_grade=latest_review.bline_grade if latest_review is not None else BLineGrade.UNKNOWN.value,
+        uncertain_flag=latest_review.uncertain_flag if latest_review is not None else False,
+        include_in_training=latest_review.include_in_training if latest_review is not None else True,
+        review_comment=latest_review.comment if latest_review is not None else None,
+        reviewed_by=latest_review.reviewed_by if latest_review is not None else None,
+        reviewed_at=latest_review.reviewed_at if latest_review is not None else None,
+        keyframe_count=len(video.keyframes),
         created_at=video.created_at,
         updated_at=video.updated_at,
     )

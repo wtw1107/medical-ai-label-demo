@@ -4,6 +4,17 @@ export type ExportRange = "confirmed_only";
 export type ModelType = "detection" | "segmentation";
 export type ModelStatus = "available" | "not_configured";
 export type ModelDeploymentType = "mock" | "external_api" | "local_model_placeholder";
+export type VideoQuality = "good" | "usable" | "poor" | "unknown";
+export type BLineGrade = "0" | "1-2" | "3+" | "confluent" | "unknown";
+export type KeyFrameReason =
+  | "first_clear"
+  | "most_obvious"
+  | "appear"
+  | "disappear"
+  | "count_change"
+  | "interval_sample"
+  | "issue_frame"
+  | "manual";
 
 export interface ModelRequirements {
   api_key?: boolean | null;
@@ -243,4 +254,133 @@ export interface ExportStatusResponse {
   download_url: string | null;
   total_count: number;
   error_message: string | null;
+}
+
+export interface VideoUploadWarning {
+  filename: string;
+  message: string;
+}
+
+export interface VideoItem {
+  id: string;
+  dataset_id: string;
+  patient_id: string | null;
+  patient_uid: string | null;
+  filename: string;
+  file_path: string;
+  file_url: string;
+  duration_sec: number | null;
+  fps: number | null;
+  frame_count: number | null;
+  width: number | null;
+  height: number | null;
+  preview_image_path: string | null;
+  preview_image_url: string | null;
+  lung_zone: string | null;
+  probe: string | null;
+  orientation: string | null;
+  device: string | null;
+  depth: string | null;
+  deid_status: string;
+  status: string;
+  error_message: string | null;
+  quality: VideoQuality;
+  bline_grade: BLineGrade;
+  uncertain_flag: boolean;
+  include_in_training: boolean;
+  review_comment: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  keyframe_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VideoDatasetUploadResponse {
+  dataset_id: string;
+  dataset_name: string;
+  video_count: number;
+  patient_count: number;
+  videos: VideoItem[];
+  warnings: VideoUploadWarning[];
+}
+
+export interface SplitSummaryItem {
+  split: string;
+  patient_count: number;
+  video_count: number;
+}
+
+export interface ReviewSummaryItem {
+  quality: string;
+  count: number;
+}
+
+export interface VideoDatasetSummary {
+  dataset_id: string;
+  dataset_name: string;
+  data_type: string;
+  video_count: number;
+  patient_count: number;
+  keyframe_count: number;
+  split_summary: SplitSummaryItem[];
+  review_status_summary: ReviewSummaryItem[];
+}
+
+export interface VideoListResponse {
+  dataset_id: string;
+  videos: VideoItem[];
+  total: number;
+}
+
+export interface VideoReviewUpdateRequest {
+  quality: VideoQuality;
+  bline_grade: BLineGrade;
+  uncertain_flag: boolean;
+  include_in_training: boolean;
+  comment?: string | null;
+  reviewed_by?: string | null;
+}
+
+export interface VideoReview {
+  video_id: string;
+  quality: VideoQuality;
+  bline_grade: BLineGrade;
+  uncertain_flag: boolean;
+  include_in_training: boolean;
+  comment: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+}
+
+export interface KeyFrame {
+  id: string;
+  video_id: string;
+  frame_index: number;
+  timestamp_ms: number;
+  selection_reason: KeyFrameReason;
+  image_path: string;
+  image_url: string;
+  annotation_status: string;
+  review_status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KeyFrameExtractRequest {
+  frame_indices?: number[];
+  interval?: number;
+  reasons?: KeyFrameReason[];
+}
+
+export interface KeyFrameExtractResponse {
+  video_id: string;
+  extracted_count: number;
+  keyframes: KeyFrame[];
+}
+
+export interface KeyFrameListResponse {
+  video_id: string;
+  keyframes: KeyFrame[];
+  total: number;
 }
