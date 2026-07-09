@@ -1,0 +1,58 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - label-studio
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      BACKEND_HOST: 0.0.0.0
+      BACKEND_PORT: 8000
+      DATA_ROOT: ${DATA_ROOT:-/data}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/demo.db}
+      MEDIA_BASE_URL: ${MEDIA_BASE_URL:-/media}
+      LABEL_STUDIO_URL: ${LABEL_STUDIO_URL}
+      LABEL_STUDIO_API_TOKEN: ${LABEL_STUDIO_API_TOKEN}
+      MODEL_SERVICE_URL: ${MODEL_SERVICE_URL:-http://model_service:9000}
+      DEFAULT_USER_ID: ${DEFAULT_USER_ID:-deployment_demo_user}
+    volumes:
+      - ${APP_DATA_DIR:-/srv/medical-ai-label-demo/data}:${DATA_ROOT:-/data}
+    depends_on:
+      - model_service
+      - label-studio
+    restart: unless-stopped
+
+  model_service:
+    build:
+      context: .
+      dockerfile: model_service/Dockerfile
+    environment:
+      ROBOFLOW_API_KEY: ${ROBOFLOW_API_KEY:-}
+      ROBOFLOW_API_URL: ${ROBOFLOW_API_URL:-https://serverless.roboflow.com}
+      ROBOFLOW_THYROID_MODEL_ID: ${ROBOFLOW_THYROID_MODEL_ID:-thyroid-nodules-detection-test/3}
+      ROBOFLOW_CONFIDENCE: ${ROBOFLOW_CONFIDENCE:-0.05}
+    restart: unless-stopped
+
+  label-studio:
+    image: heartexlabs/label-studio:latest
+    environment:
+      LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK: "true"
+    volumes:
+      - ${LABEL_STUDIO_DATA_DIR:-/srv/medical-ai-label-demo/label-studio}:/label-studio/data
+    restart: unless-stopped
+
+networks:
+  default:
+    name: medical-ai-label-demo-prod
