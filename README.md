@@ -28,6 +28,16 @@
 - 训练调度平台
 - Label Studio 前端源码二次开发
 
+补充说明：
+
+- 当前仓库已开始加入 `video_bline_segmentation` 的后端骨架，但仍处于 MVP scaffold 阶段。
+- 当前仓库中的视频能力仅限 `video_bline_segmentation` 的后端骨架。
+- 当前不包含 CVAT 集成。
+- 当前不包含视频 AI 预标注。
+- 当前不包含正式复核 / 仲裁流程。
+- 数据库迁移目前依旧沿用本地 Demo 的 `create_all` 风格；生产部署建议后续切换到 Alembic + PostgreSQL。
+- 视频文件、抽帧图片和任何真实患者信息都不要提交到 Git。
+
 ## 2. 本地运行
 
 标准本地端口：

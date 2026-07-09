@@ -10,6 +10,7 @@ from app.routers.exports import router as exports_router
 from app.routers.models import router as models_router
 from app.routers.prelabel import router as prelabel_router
 from app.routers.tasks import router as tasks_router
+from app.routers.videos import router as videos_router
 from app.services.label_studio_service import ensure_annotation_task_schema
 
 settings = get_settings()
@@ -34,6 +35,7 @@ app.include_router(tasks_router)
 app.include_router(models_router)
 app.include_router(prelabel_router)
 app.include_router(exports_router)
+app.include_router(videos_router)
 
 
 @app.get("/health")

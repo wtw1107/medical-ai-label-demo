@@ -8,14 +8,22 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.constants import (
     AnnotationTaskStatus,
+    BLineGrade,
     DataType,
+    DatasetSplit,
+    DeidentificationStatus,
     DatasetStatus,
     ExportFormat,
     ExportRange,
     ExportRecordStatus,
     ImageStatus,
+    KeyFrameReviewStatus,
+    KeyFrameReason,
     PrelabelJobStatus,
     TaskType,
+    VideoAnnotationStatus,
+    VideoItemStatus,
+    VideoQuality,
 )
 from app.db.base import Base
 
@@ -58,6 +66,14 @@ class Dataset(Base, TimestampMixin):
         back_populates="dataset",
         cascade="all, delete-orphan",
     )
+    patients: Mapped[list[Patient]] = relationship(
+        back_populates="dataset",
+        cascade="all, delete-orphan",
+    )
+    video_items: Mapped[list[VideoItem]] = relationship(
+        back_populates="dataset",
+        cascade="all, delete-orphan",
+    )
 
 
 class ImageItem(Base, TimestampMixin):
@@ -80,6 +96,149 @@ class ImageItem(Base, TimestampMixin):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     dataset: Mapped[Dataset] = relationship(back_populates="image_items")
+
+
+class Patient(Base, TimestampMixin):
+    __tablename__ = "patients"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
+    dataset_id: Mapped[str] = mapped_column(
+        String(32),
+        ForeignKey("datasets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    patient_uid: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    split: Mapped[str] = mapped_column(
+        String(32),
+        default=DatasetSplit.UNASSIGNED.value,
+        nullable=False,
+    )
+    site: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    device_group: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    dataset: Mapped[Dataset] = relationship(back_populates="patients")
+    video_items: Mapped[list[VideoItem]] = relationship(
+        back_populates="patient",
+        cascade="all, delete-orphan",
+    )
+
+
+class VideoItem(Base, TimestampMixin):
+    __tablename__ = "video_items"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
+    dataset_id: Mapped[str] = mapped_column(
+        String(32),
+        ForeignKey("datasets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    patient_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey("patients.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    file_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    duration_sec: Mapped[float | None] = mapped_column(nullable=True)
+    fps: Mapped[float | None] = mapped_column(nullable=True)
+    frame_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    preview_image_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    preview_image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    lung_zone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    probe: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    orientation: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    device: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    depth: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    deid_status: Mapped[str] = mapped_column(
+        String(32),
+        default=DeidentificationStatus.UNKNOWN.value,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        String(32),
+        default=VideoItemStatus.UPLOADED.value,
+        nullable=False,
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    dataset: Mapped[Dataset] = relationship(back_populates="video_items")
+    patient: Mapped[Patient | None] = relationship(back_populates="video_items")
+    reviews: Mapped[list[VideoReview]] = relationship(
+        back_populates="video",
+        cascade="all, delete-orphan",
+    )
+    keyframes: Mapped[list[KeyFrame]] = relationship(
+        back_populates="video",
+        cascade="all, delete-orphan",
+    )
+
+
+class VideoReview(Base, TimestampMixin):
+    __tablename__ = "video_reviews"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
+    video_id: Mapped[str] = mapped_column(
+        String(32),
+        ForeignKey("video_items.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    quality: Mapped[str] = mapped_column(
+        String(32),
+        default=VideoQuality.UNKNOWN.value,
+        nullable=False,
+    )
+    bline_grade: Mapped[str] = mapped_column(
+        String(32),
+        default=BLineGrade.UNKNOWN.value,
+        nullable=False,
+    )
+    uncertain_flag: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    include_in_training: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    video: Mapped[VideoItem] = relationship(back_populates="reviews")
+
+
+class KeyFrame(Base, TimestampMixin):
+    __tablename__ = "key_frames"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
+    video_id: Mapped[str] = mapped_column(
+        String(32),
+        ForeignKey("video_items.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    frame_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    timestamp_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    selection_reason: Mapped[str] = mapped_column(
+        String(32),
+        default=KeyFrameReason.MANUAL.value,
+        nullable=False,
+    )
+    image_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    image_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    annotation_status: Mapped[str] = mapped_column(
+        String(32),
+        default=VideoAnnotationStatus.PENDING.value,
+        nullable=False,
+    )
+    review_status: Mapped[str] = mapped_column(
+        String(32),
+        default=KeyFrameReviewStatus.UNREVIEWED.value,
+        nullable=False,
+    )
+
+    video: Mapped[VideoItem] = relationship(back_populates="keyframes")
 
 
 class AnnotationTask(Base, TimestampMixin):
