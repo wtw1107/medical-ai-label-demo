@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile
 from PIL import Image
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -19,6 +20,7 @@ from app.core.constants import (
     VideoItemStatus,
 )
 from app.db.models import Dataset, Patient, VideoItem
+from app.db.session import engine
 from app.schemas.video import (
     PatientRead,
     VideoDatasetUploadResponse,
@@ -29,6 +31,24 @@ from app.utils.file_utils import build_unique_filename, normalize_filename, safe
 
 
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv"}
+
+
+def ensure_video_schema() -> None:
+    with engine.begin() as connection:
+        if connection.dialect.name != "sqlite":
+            return
+        columns = connection.execute(text("PRAGMA table_info(key_frames)")).mappings().all()
+        if not columns:
+            return
+        column_names = {column["name"] for column in columns}
+        if "label_studio_project_id" not in column_names:
+            connection.execute(text("ALTER TABLE key_frames ADD COLUMN label_studio_project_id INTEGER"))
+        if "label_studio_task_id" not in column_names:
+            connection.execute(text("ALTER TABLE key_frames ADD COLUMN label_studio_task_id INTEGER"))
+        if "label_studio_task_url" not in column_names:
+            connection.execute(text("ALTER TABLE key_frames ADD COLUMN label_studio_task_url VARCHAR(512)"))
+        if "annotation_updated_at" not in column_names:
+            connection.execute(text("ALTER TABLE key_frames ADD COLUMN annotation_updated_at DATETIME"))
 
 
 @dataclass

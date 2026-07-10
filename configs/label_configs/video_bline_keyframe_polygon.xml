@@ -1,0 +1,17 @@
+<View>
+  <Image name="image" value="$image" zoom="true" zoomControl="true" rotateControl="true" />
+  <Header value="B-line keyframe annotation" />
+  <PolygonLabels name="bline_polygon" toName="image">
+    <Label value="B-line" background="#F97316" />
+  </PolygonLabels>
+  <Choices name="review_status" toName="image" choice="single" showInLine="true">
+    <Choice value="accepted" />
+    <Choice value="needs_review" />
+    <Choice value="unreviewed" />
+  </Choices>
+  <Choices name="uncertain_flag" toName="image" choice="single" showInLine="true">
+    <Choice value="false" />
+    <Choice value="true" />
+  </Choices>
+  <TextArea name="review_comment" toName="image" placeholder="Optional review comment" />
+</View>

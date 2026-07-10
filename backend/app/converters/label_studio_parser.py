@@ -23,6 +23,23 @@ class ParsedAnnotation:
     objects: list[ParsedObject]
 
 
+def extract_latest_saved_annotation(remote_task: dict[str, object]) -> dict[str, object] | None:
+    annotations = remote_task.get("annotations", [])
+    if not isinstance(annotations, list) or not annotations:
+        return None
+    return next(
+        (
+            item
+            for item in reversed(annotations)
+            if isinstance(item, dict)
+            and not item.get("was_cancelled", False)
+            and isinstance(item.get("result"), list)
+            and item.get("result")
+        ),
+        None,
+    )
+
+
 def _percent_to_pixel(value: float, total: int) -> float:
     return round((value / 100.0) * total, 4)
 
@@ -83,21 +100,7 @@ def parse_human_annotation_task(
     width: int,
     height: int,
 ) -> ParsedAnnotation | None:
-    annotations = remote_task.get("annotations", [])
-    if not isinstance(annotations, list) or not annotations:
-        return None
-
-    human_annotation = next(
-        (
-            item
-            for item in reversed(annotations)
-            if isinstance(item, dict)
-            and not item.get("was_cancelled", False)
-            and isinstance(item.get("result"), list)
-            and item.get("result")
-        ),
-        None,
-    )
+    human_annotation = extract_latest_saved_annotation(remote_task)
     if human_annotation is None:
         return None
 
@@ -122,6 +125,45 @@ def parse_human_annotation_task(
     return ParsedAnnotation(
         task_id=task_id,
         image_id=image_id,
+        filename=filename,
+        width=width,
+        height=height,
+        objects=objects,
+    )
+
+
+def parse_keyframe_annotation_task(
+    *,
+    remote_task: dict[str, object],
+    keyframe_id: str,
+    filename: str,
+    width: int,
+    height: int,
+) -> ParsedAnnotation | None:
+    human_annotation = extract_latest_saved_annotation(remote_task)
+    if human_annotation is None:
+        return None
+
+    task_id = remote_task.get("id")
+    if not isinstance(task_id, int):
+        raise ValueError("Label Studio task id is missing.")
+
+    objects: list[ParsedObject] = []
+    for result in human_annotation.get("result", []):
+        if not isinstance(result, dict):
+            continue
+        if (
+            result.get("type") == "polygonlabels"
+            and result.get("from_name") == LabelStudioFieldName.BLINE_POLYGON.value
+        ):
+            objects.append(_parse_polygon(result, width, height))
+
+    if not objects:
+        return None
+
+    return ParsedAnnotation(
+        task_id=task_id,
+        image_id=keyframe_id,
         filename=filename,
         width=width,
         height=height,

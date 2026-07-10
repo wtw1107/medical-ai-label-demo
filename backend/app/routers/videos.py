@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -12,15 +13,21 @@ from app.db.session import get_db
 from app.schemas.video import (
     KeyFrameExtractRequest,
     KeyFrameExtractResponse,
+    KeyFrameLabelStudioInitRequest,
+    KeyFrameLabelStudioInitResponse,
+    KeyFrameLabelStudioSyncResponse,
     KeyFrameListResponse,
     ReviewSummaryItem,
     SplitSummaryItem,
     VideoDatasetSummaryResponse,
     VideoDatasetUploadResponse,
+    VideoKeyframeExportResponse,
     VideoListResponse,
     VideoReviewResponse,
     VideoReviewUpdateRequest,
 )
+from app.services.video_keyframe_export_service import VideoKeyframeExportService
+from app.services.video_keyframe_label_studio_service import VideoKeyframeLabelStudioService
 from app.services.keyframe_service import KeyFrameService
 from app.services.video_storage_service import VideoStorageService
 
@@ -210,3 +217,46 @@ def list_keyframes(
         keyframes=[service.serialize_keyframe(item) for item in keyframes],
         total=len(keyframes),
     )
+
+
+@router.post("/videos/{video_id}/keyframes/label-studio/init", response_model=KeyFrameLabelStudioInitResponse)
+def init_keyframe_label_studio_tasks(
+    video_id: str,
+    payload: KeyFrameLabelStudioInitRequest,
+    db: Session = Depends(get_db),
+) -> KeyFrameLabelStudioInitResponse:
+    service = VideoKeyframeLabelStudioService(get_settings())
+    return service.init_keyframe_tasks(
+        db=db,
+        video_id=video_id,
+        keyframe_ids=payload.keyframe_ids,
+        project_title=payload.project_title,
+    )
+
+
+@router.post("/videos/{video_id}/keyframes/sync-label-studio-status", response_model=KeyFrameLabelStudioSyncResponse)
+def sync_keyframe_label_studio_status(
+    video_id: str,
+    db: Session = Depends(get_db),
+) -> KeyFrameLabelStudioSyncResponse:
+    service = VideoKeyframeLabelStudioService(get_settings())
+    return service.sync_keyframe_status(db=db, video_id=video_id)
+
+
+@router.post("/video-datasets/{dataset_id}/exports/bline-keyframes", response_model=VideoKeyframeExportResponse)
+def export_bline_keyframes(
+    dataset_id: str,
+    db: Session = Depends(get_db),
+) -> VideoKeyframeExportResponse:
+    service = VideoKeyframeExportService(get_settings())
+    payload = service.export_dataset(db=db, dataset_id=dataset_id)
+    return VideoKeyframeExportResponse(**payload)
+
+
+@router.get("/video-exports/{export_id}/download")
+def download_video_export(
+    export_id: str,
+) -> FileResponse:
+    service = VideoKeyframeExportService(get_settings())
+    path = service.get_download_path(export_id)
+    return FileResponse(path, media_type="application/zip", filename=path.name)

@@ -4,7 +4,14 @@ import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { extractVideoKeyframes, listDatasetVideos, listVideoKeyframes, updateVideoReview } from "../api/videos";
+import {
+  extractVideoKeyframes,
+  initKeyframeLabelStudio,
+  listDatasetVideos,
+  listVideoKeyframes,
+  syncKeyframeLabelStudioStatus,
+  updateVideoReview,
+} from "../api/videos";
 import { StatusTag } from "../components/StatusTag";
 import type { BLineGrade, KeyFrame, KeyFrameReason, VideoItem, VideoQuality } from "../types/api";
 
@@ -89,6 +96,8 @@ export function VideoReviewPage() {
   const [loading, setLoading] = useState(true);
   const [savingReview, setSavingReview] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [initializingLabel, setInitializingLabel] = useState(false);
+  const [syncingLabelStatus, setSyncingLabelStatus] = useState(false);
 
   const loadPageData = async (currentDatasetId: string, currentVideoId: string) => {
     setLoading(true);
@@ -177,6 +186,44 @@ export function VideoReviewPage() {
     }
   };
 
+  const handleInitKeyframeLabelStudio = async () => {
+    if (!videoId || !datasetId) {
+      return;
+    }
+    if (keyframes.length === 0) {
+      message.warning("请先抽取关键帧，再初始化标注任务。");
+      return;
+    }
+    try {
+      setInitializingLabel(true);
+      const response = await initKeyframeLabelStudio(videoId, {});
+      setKeyframes(response.keyframes);
+      message.success(`标注任务已准备好：新建 ${response.initialized_count} 个，复用 ${response.reused_count} 个。`);
+      await loadPageData(datasetId, videoId);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "初始化关键帧标注任务失败。");
+    } finally {
+      setInitializingLabel(false);
+    }
+  };
+
+  const handleSyncKeyframeLabelStatus = async () => {
+    if (!videoId || !datasetId) {
+      return;
+    }
+    try {
+      setSyncingLabelStatus(true);
+      const response = await syncKeyframeLabelStudioStatus(videoId);
+      setKeyframes(response.keyframes);
+      message.success(`同步完成：已标注 ${response.labeled_count} 张，未标注 ${response.unlabeled_count} 张。`);
+      await loadPageData(datasetId, videoId);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "同步关键帧标注状态失败。");
+    } finally {
+      setSyncingLabelStatus(false);
+    }
+  };
+
   const keyframeColumns = useMemo<ColumnsType<KeyFrame>>(
     () => [
       {
@@ -218,6 +265,18 @@ export function VideoReviewPage() {
         dataIndex: "review_status",
         key: "review_status",
         render: (value: string) => <Tag color={value === "accepted" ? "success" : "default"}>{value}</Tag>,
+      },
+      {
+        title: "Label Studio",
+        key: "label_studio",
+        render: (_, record) =>
+          record.label_studio_task_url ? (
+            <Button size="small" onClick={() => window.open(record.label_studio_task_url || "", "_blank", "noopener,noreferrer")}>
+              进入标注
+            </Button>
+          ) : (
+            <Typography.Text type="secondary">未创建标注任务</Typography.Text>
+          ),
       },
     ],
     [],
@@ -353,8 +412,20 @@ export function VideoReviewPage() {
         </Form>
       </Card>
 
-      <Card title="关键帧列表" className="panel-card" extra={<Typography.Text>{`共 ${keyframes.length} 张`}</Typography.Text>}>
-        <Table rowKey="id" columns={keyframeColumns} dataSource={keyframes} pagination={{ pageSize: 6, showSizeChanger: false }} scroll={{ x: 920 }} />
+      <Card
+        title="关键帧列表"
+        className="panel-card"
+        extra={<Typography.Text>{`共 ${keyframes.length} 张`}</Typography.Text>}
+      >
+        <Space wrap style={{ marginBottom: 16 }}>
+          <Button onClick={() => void handleInitKeyframeLabelStudio()} loading={initializingLabel} disabled={keyframes.length === 0}>
+            初始化关键帧标注任务
+          </Button>
+          <Button onClick={() => void handleSyncKeyframeLabelStatus()} loading={syncingLabelStatus} disabled={keyframes.length === 0}>
+            同步标注状态
+          </Button>
+        </Space>
+        <Table rowKey="id" columns={keyframeColumns} dataSource={keyframes} pagination={{ pageSize: 6, showSizeChanger: false }} scroll={{ x: 1100 }} />
         {!loading && keyframes.length === 0 ? <Empty description="尚未抽取关键帧" /> : null}
       </Card>
     </Space>

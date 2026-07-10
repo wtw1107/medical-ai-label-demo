@@ -12,6 +12,7 @@ from app.routers.prelabel import router as prelabel_router
 from app.routers.tasks import router as tasks_router
 from app.routers.videos import router as videos_router
 from app.services.label_studio_service import ensure_annotation_task_schema
+from app.services.video_storage_service import ensure_video_schema
 
 settings = get_settings()
 
@@ -48,3 +49,4 @@ def on_startup() -> None:
     # Keep startup lightweight; create tables only for the foundation phase.
     Base.metadata.create_all(bind=engine)
     ensure_annotation_task_schema()
+    ensure_video_schema()

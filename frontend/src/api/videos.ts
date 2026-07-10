@@ -1,9 +1,13 @@
 import type {
   KeyFrameExtractRequest,
   KeyFrameExtractResponse,
+  KeyFrameLabelStudioInitRequest,
+  KeyFrameLabelStudioInitResponse,
+  KeyFrameLabelStudioSyncResponse,
   KeyFrameListResponse,
   VideoDatasetSummary,
   VideoDatasetUploadResponse,
+  VideoKeyframeExportResponse,
   VideoListResponse,
   VideoReview,
   VideoReviewUpdateRequest,
@@ -62,5 +66,20 @@ export async function extractVideoKeyframes(videoId: string, payload: KeyFrameEx
 
 export async function listVideoKeyframes(videoId: string) {
   const response = await apiClient.get<KeyFrameListResponse>(`/api/videos/${videoId}/keyframes`);
+  return response.data;
+}
+
+export async function initKeyframeLabelStudio(videoId: string, payload: KeyFrameLabelStudioInitRequest = {}) {
+  const response = await apiClient.post<KeyFrameLabelStudioInitResponse>(`/api/videos/${videoId}/keyframes/label-studio/init`, payload);
+  return response.data;
+}
+
+export async function syncKeyframeLabelStudioStatus(videoId: string) {
+  const response = await apiClient.post<KeyFrameLabelStudioSyncResponse>(`/api/videos/${videoId}/keyframes/sync-label-studio-status`);
+  return response.data;
+}
+
+export async function exportBlineKeyframes(datasetId: string) {
+  const response = await apiClient.post<VideoKeyframeExportResponse>(`/api/video-datasets/${datasetId}/exports/bline-keyframes`);
   return response.data;
 }

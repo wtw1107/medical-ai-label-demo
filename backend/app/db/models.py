@@ -227,6 +227,9 @@ class KeyFrame(Base, TimestampMixin):
     )
     image_path: Mapped[str] = mapped_column(String(512), nullable=False)
     image_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    label_studio_project_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    label_studio_task_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    label_studio_task_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     annotation_status: Mapped[str] = mapped_column(
         String(32),
         default=VideoAnnotationStatus.PENDING.value,
@@ -237,6 +240,7 @@ class KeyFrame(Base, TimestampMixin):
         default=KeyFrameReviewStatus.UNREVIEWED.value,
         nullable=False,
     )
+    annotation_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     video: Mapped[VideoItem] = relationship(back_populates="keyframes")
 

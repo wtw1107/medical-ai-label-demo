@@ -361,8 +361,12 @@ export interface KeyFrame {
   selection_reason: KeyFrameReason;
   image_path: string;
   image_url: string;
+  label_studio_project_id: number | null;
+  label_studio_task_id: number | null;
+  label_studio_task_url: string | null;
   annotation_status: string;
   review_status: string;
+  annotation_updated_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -383,4 +387,41 @@ export interface KeyFrameListResponse {
   video_id: string;
   keyframes: KeyFrame[];
   total: number;
+}
+
+export interface KeyFrameLabelStudioInitRequest {
+  keyframe_ids?: string[];
+  project_title?: string | null;
+}
+
+export interface KeyFrameLabelStudioInitResponse {
+  video_id: string;
+  label_studio_project_id: number;
+  label_studio_project_url: string;
+  initialized_count: number;
+  reused_count: number;
+  keyframes: KeyFrame[];
+}
+
+export interface ReviewStatusSummaryItem {
+  review_status: string;
+  count: number;
+}
+
+export interface KeyFrameLabelStudioSyncResponse {
+  video_id: string;
+  total_keyframes: number;
+  labeled_count: number;
+  unlabeled_count: number;
+  review_status_summary: ReviewStatusSummaryItem[];
+  keyframes: KeyFrame[];
+}
+
+export interface VideoKeyframeExportResponse {
+  export_id: string;
+  dataset_id: string;
+  total_labeled_count: number;
+  skipped_count: number;
+  file_path: string;
+  download_url: string;
 }

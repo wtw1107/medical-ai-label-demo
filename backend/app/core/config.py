@@ -48,6 +48,7 @@ class Settings(BaseSettings):
             TaskType.BBOX.value: config_dir / "bbox.xml",
             TaskType.POLYGON.value: config_dir / "polygon.xml",
             TaskType.BBOX_POLYGON.value: config_dir / "bbox_polygon.xml",
+            TaskType.VIDEO_BLINE_SEGMENTATION.value: config_dir / "video_bline_keyframe_polygon.xml",
         }
         try:
             return mapping[task_type]

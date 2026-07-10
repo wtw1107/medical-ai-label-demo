@@ -1,10 +1,10 @@
 import React from "react";
-import { App, Button, Card, Descriptions, Empty, Image, Space, Table, Tag, Typography } from "antd";
+import { Alert, App, Button, Card, Descriptions, Empty, Image, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { getVideoDataset, listDatasetVideos } from "../api/videos";
+import { exportBlineKeyframes, getVideoDataset, listDatasetVideos } from "../api/videos";
 import { StatusTag } from "../components/StatusTag";
 import type { ReviewSummaryItem, SplitSummaryItem, VideoDatasetSummary, VideoItem } from "../types/api";
 
@@ -58,6 +58,7 @@ export function VideoDatasetDetailPage() {
   const [summary, setSummary] = useState<VideoDatasetSummary | null>(null);
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   const loadData = async (currentDatasetId: string) => {
     setLoading(true);
@@ -83,6 +84,22 @@ export function VideoDatasetDetailPage() {
     }
     void loadData(datasetId);
   }, [datasetId]);
+
+  const handleExport = async () => {
+    if (!datasetId) {
+      return;
+    }
+    try {
+      setExporting(true);
+      const result = await exportBlineKeyframes(datasetId);
+      window.open(result.download_url, "_blank", "noopener,noreferrer");
+      message.success(`导出完成：已标注 ${result.total_labeled_count} 张，跳过 ${result.skipped_count} 张。`);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "导出 B-line 关键帧数据集失败。");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const columns = useMemo<ColumnsType<VideoItem>>(
     () => [
@@ -171,6 +188,9 @@ export function VideoDatasetDetailPage() {
             <Button onClick={() => void loadData(datasetId)} loading={loading}>
               刷新
             </Button>
+            <Button type="primary" onClick={() => void handleExport()} loading={exporting}>
+              导出 B-line 关键帧数据集
+            </Button>
           </Space>
         </Space>
       </Card>
@@ -192,6 +212,12 @@ export function VideoDatasetDetailPage() {
       </Card>
 
       <Card title="视频列表" className="panel-card" extra={<Typography.Text>{`共 ${videos.length} 个视频`}</Typography.Text>}>
+        <Alert
+          type="info"
+          showIcon
+          message="导出仅包含已标注关键帧，mask 为 0/1 binary PNG，并附带 manifest.json、manifest.csv、skipped.json 和 README.txt。"
+          style={{ marginBottom: 16 }}
+        />
         <Table
           rowKey="id"
           loading={loading}

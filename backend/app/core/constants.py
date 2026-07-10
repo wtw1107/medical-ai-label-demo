@@ -37,6 +37,10 @@ class LabelStudioFieldName(StrEnum):
     IMAGE = "image"
     BBOX = "bbox"
     LESION_POLYGON = "lesion_polygon"
+    BLINE_POLYGON = "bline_polygon"
+    REVIEW_STATUS = "review_status"
+    REVIEW_COMMENT = "review_comment"
+    UNCERTAIN_FLAG = "uncertain_flag"
 
 
 class ExportRecordStatus(StrEnum):

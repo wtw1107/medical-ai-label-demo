@@ -8,6 +8,7 @@ from app.core.constants import (
     BLineGrade,
     DatasetSplit,
     DeidentificationStatus,
+    KeyFrameReviewStatus,
     KeyFrameReason,
     VideoAnnotationStatus,
     VideoQuality,
@@ -140,8 +141,12 @@ class KeyFrameRead(BaseModel):
     selection_reason: str = KeyFrameReason.MANUAL.value
     image_path: str
     image_url: str
+    label_studio_project_id: int | None = None
+    label_studio_task_id: int | None = None
+    label_studio_task_url: str | None = None
     annotation_status: str = VideoAnnotationStatus.PENDING.value
-    review_status: str
+    review_status: str = KeyFrameReviewStatus.UNREVIEWED.value
+    annotation_updated_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -156,3 +161,40 @@ class KeyFrameListResponse(BaseModel):
     video_id: str
     keyframes: list[KeyFrameRead]
     total: int
+
+
+class KeyFrameLabelStudioInitRequest(BaseModel):
+    keyframe_ids: list[str] = Field(default_factory=list)
+    project_title: str | None = None
+
+
+class KeyFrameLabelStudioInitResponse(BaseModel):
+    video_id: str
+    label_studio_project_id: int
+    label_studio_project_url: str
+    initialized_count: int
+    reused_count: int
+    keyframes: list[KeyFrameRead]
+
+
+class ReviewStatusSummaryItem(BaseModel):
+    review_status: str
+    count: int
+
+
+class KeyFrameLabelStudioSyncResponse(BaseModel):
+    video_id: str
+    total_keyframes: int
+    labeled_count: int
+    unlabeled_count: int
+    review_status_summary: list[ReviewStatusSummaryItem]
+    keyframes: list[KeyFrameRead]
+
+
+class VideoKeyframeExportResponse(BaseModel):
+    export_id: str
+    dataset_id: str
+    total_labeled_count: int
+    skipped_count: int
+    file_path: str
+    download_url: str
