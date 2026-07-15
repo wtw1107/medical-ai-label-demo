@@ -7,8 +7,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.constants import DataType, VideoQuality
-from app.db.models import KeyFrame, Patient, VideoItem, VideoReview
+from app.core.constants import DataType, VideoAnnotationStatus, VideoQuality
+from app.db.models import Dataset, KeyFrame, Patient, VideoItem, VideoReview
 from app.db.session import get_db
 from app.schemas.video import (
     KeyFrameExtractRequest,
@@ -19,6 +19,8 @@ from app.schemas.video import (
     KeyFrameListResponse,
     ReviewSummaryItem,
     SplitSummaryItem,
+    VideoDatasetListItemResponse,
+    VideoDatasetListResponse,
     VideoDatasetSummaryResponse,
     VideoDatasetUploadResponse,
     VideoKeyframeExportResponse,
@@ -67,6 +69,60 @@ def upload_video_dataset(
         site=site,
         device_group=device_group,
     )
+
+
+@router.get("/video-datasets", response_model=VideoDatasetListResponse)
+def list_video_datasets(
+    db: Session = Depends(get_db),
+) -> VideoDatasetListResponse:
+    datasets = (
+        db.query(Dataset)
+        .filter(Dataset.data_type == DataType.VIDEO.value)
+        .order_by(Dataset.updated_at.desc())
+        .all()
+    )
+
+    items: list[VideoDatasetListItemResponse] = []
+    for dataset in datasets:
+        patient_count = db.query(Patient).filter(Patient.dataset_id == dataset.id).count()
+        video_count = db.query(VideoItem).filter(VideoItem.dataset_id == dataset.id).count()
+        keyframe_count = (
+            db.query(KeyFrame)
+            .join(VideoItem, KeyFrame.video_id == VideoItem.id)
+            .filter(VideoItem.dataset_id == dataset.id)
+            .count()
+        )
+        annotated_count = (
+            db.query(KeyFrame)
+            .join(VideoItem, KeyFrame.video_id == VideoItem.id)
+            .filter(
+                VideoItem.dataset_id == dataset.id,
+                KeyFrame.annotation_status == VideoAnnotationStatus.ANNOTATED.value,
+            )
+            .count()
+        )
+        reviewed_count = (
+            db.query(VideoReview)
+            .join(VideoItem, VideoReview.video_id == VideoItem.id)
+            .filter(VideoItem.dataset_id == dataset.id)
+            .count()
+        )
+
+        items.append(
+            VideoDatasetListItemResponse(
+                dataset_id=dataset.id,
+                dataset_name=dataset.name,
+                data_type=dataset.data_type,
+                patient_count=patient_count,
+                video_count=video_count,
+                keyframe_count=keyframe_count,
+                annotated_count=annotated_count,
+                reviewed_count=reviewed_count,
+                updated_at=dataset.updated_at,
+            )
+        )
+
+    return VideoDatasetListResponse(items=items, total=len(items))
 
 
 @router.get("/video-datasets/{dataset_id}", response_model=VideoDatasetSummaryResponse)

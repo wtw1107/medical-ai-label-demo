@@ -5,6 +5,7 @@ import type {
   KeyFrameLabelStudioInitResponse,
   KeyFrameLabelStudioSyncResponse,
   KeyFrameListResponse,
+  VideoDatasetListResponse,
   VideoDatasetSummary,
   VideoDatasetUploadResponse,
   VideoKeyframeExportResponse,
@@ -46,6 +47,11 @@ export async function uploadVideoDataset(payload: UploadVideoDatasetPayload) {
 
 export async function getVideoDataset(datasetId: string) {
   const response = await apiClient.get<VideoDatasetSummary>(`/api/video-datasets/${datasetId}`);
+  return response.data;
+}
+
+export async function listVideoDatasets() {
+  const response = await apiClient.get<VideoDatasetListResponse>("/api/video-datasets");
   return response.data;
 }
 

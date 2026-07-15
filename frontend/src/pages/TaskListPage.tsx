@@ -6,8 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { listTasks } from "../api/tasks";
+import { listVideoDatasets } from "../api/videos";
 import { StatusTag } from "../components/StatusTag";
-import type { AnnotationTaskListItem } from "../types/api";
+import type { AnnotationTaskListItem, VideoDatasetListItem } from "../types/api";
 
 function formatDateTime(value: string) {
   const date = new Date(value);
@@ -22,41 +23,61 @@ function formatDateTime(value: string) {
 
 export function TaskListPage() {
   const navigate = useNavigate();
-  const [tasks, setTasks] = useState<AnnotationTaskListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [imageTasks, setImageTasks] = useState<AnnotationTaskListItem[]>([]);
+  const [videoTasks, setVideoTasks] = useState<VideoDatasetListItem[]>([]);
+  const [loadingImages, setLoadingImages] = useState(true);
+  const [loadingVideos, setLoadingVideos] = useState(true);
 
   useEffect(() => {
     let active = true;
 
-    async function loadTasks() {
+    async function loadImageTasks() {
       try {
-        setLoading(true);
+        setLoadingImages(true);
         const response = await listTasks();
-        if (!active) {
-          return;
+        if (active) {
+          setImageTasks(response.items);
         }
-        setTasks(response.items);
       } catch (error) {
-        if (!active) {
-          return;
+        if (active) {
+          setImageTasks([]);
+          message.error(error instanceof Error ? error.message : "加载图片任务列表失败。");
         }
-        setTasks([]);
-        message.error(error instanceof Error ? error.message : "加载任务列表失败。");
       } finally {
         if (active) {
-          setLoading(false);
+          setLoadingImages(false);
         }
       }
     }
 
-    void loadTasks();
+    async function loadVideoTasks() {
+      try {
+        setLoadingVideos(true);
+        const response = await listVideoDatasets();
+        if (active) {
+          setVideoTasks(response.items);
+        }
+      } catch (error) {
+        if (active) {
+          setVideoTasks([]);
+          message.error(error instanceof Error ? error.message : "加载视频任务列表失败。");
+        }
+      } finally {
+        if (active) {
+          setLoadingVideos(false);
+        }
+      }
+    }
+
+    void loadImageTasks();
+    void loadVideoTasks();
 
     return () => {
       active = false;
     };
   }, []);
 
-  const columns = useMemo<ColumnsType<AnnotationTaskListItem>>(
+  const imageColumns = useMemo<ColumnsType<AnnotationTaskListItem>>(
     () => [
       {
         title: "任务名称",
@@ -100,7 +121,7 @@ export function TaskListPage() {
         ),
         dataIndex: "annotation_saved_count",
         key: "annotation_saved_count",
-        render: () => "—",
+        render: () => "-",
       },
       {
         title: "状态",
@@ -142,6 +163,71 @@ export function TaskListPage() {
     [navigate],
   );
 
+  const videoColumns = useMemo<ColumnsType<VideoDatasetListItem>>(
+    () => [
+      {
+        title: "任务名称",
+        dataIndex: "dataset_name",
+        key: "dataset_name",
+        render: (_, record) => (
+          <Space direction="vertical" size={0}>
+            <Typography.Text strong>{record.dataset_name}</Typography.Text>
+            <Typography.Text type="secondary">{record.dataset_id}</Typography.Text>
+          </Space>
+        ),
+      },
+      {
+        title: "任务类型",
+        dataIndex: "task_type",
+        key: "task_type",
+        render: () => "肺超声 B-line 视频关键帧分割",
+      },
+      {
+        title: "患者数",
+        dataIndex: "patient_count",
+        key: "patient_count",
+      },
+      {
+        title: "视频数",
+        dataIndex: "video_count",
+        key: "video_count",
+      },
+      {
+        title: "关键帧",
+        dataIndex: "keyframe_count",
+        key: "keyframe_count",
+      },
+      {
+        title: "已标注关键帧",
+        dataIndex: "annotated_count",
+        key: "annotated_count",
+      },
+      {
+        title: "已审核视频",
+        dataIndex: "reviewed_count",
+        key: "reviewed_count",
+      },
+      {
+        title: "更新时间",
+        dataIndex: "updated_at",
+        key: "updated_at",
+        render: (value: string) => formatDateTime(value),
+      },
+      {
+        title: "操作",
+        key: "actions",
+        render: (_, record) => (
+          <Button type="primary" icon={<FolderOpenOutlined />} onClick={() => navigate(`/tasks/video/${record.dataset_id}`)}>
+            进入任务详情
+          </Button>
+        ),
+      },
+    ],
+    [navigate],
+  );
+
+  const totalCount = imageTasks.length + videoTasks.length;
+
   return (
     <Space direction="vertical" size={24} style={{ width: "100%" }}>
       <Card className="hero-card">
@@ -150,11 +236,10 @@ export function TaskListPage() {
             任务列表
           </Typography.Title>
           <Typography.Paragraph className="hero-description">
-            这里集中查看已经创建的 AI 辅助标注任务。你可以重新进入任务详情，继续预标注、同步状态、查看只读 AI
-            预览、打开 Label Studio 或执行导出。
+            这里集中查看图片标注任务与肺超声 B-line 视频关键帧分割任务。图片任务仍走原 AI 预标注与 Label Studio 流程，视频任务走视频审核、关键帧标注与 B-line mask 导出流程。
           </Typography.Paragraph>
           <Space wrap>
-            <Typography.Text>任务总数：{tasks.length}</Typography.Text>
+            <Typography.Text>任务总数：{totalCount}</Typography.Text>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate("/")}>
               去创建任务
             </Button>
@@ -165,15 +250,12 @@ export function TaskListPage() {
       <Alert
         type="info"
         showIcon
-        message="任务列表统计不强制实时同步 Label Studio。若需要查看准确的人工保存状态，请进入任务详情页后点击“同步 Label Studio 状态”。"
+        message="图片任务与视频任务暂时使用各自稳定的数据模型，当前页面先做统一入口和统一浏览。"
       />
 
-      <Card title="已有任务" className="panel-card task-list-card">
-        {tasks.length === 0 && !loading ? (
-          <Empty
-            description="暂无任务，请先上传数据并创建标注任务。"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          >
+      <Card title="图片任务" className="panel-card task-list-card">
+        {imageTasks.length === 0 && !loadingImages ? (
+          <Empty description="暂无图片任务，请先上传图片并创建标注任务。" image={Empty.PRESENTED_IMAGE_SIMPLE}>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate("/")}>
               去创建任务
             </Button>
@@ -181,9 +263,28 @@ export function TaskListPage() {
         ) : (
           <Table
             rowKey="task_id"
-            loading={loading}
-            columns={columns}
-            dataSource={tasks}
+            loading={loadingImages}
+            columns={imageColumns}
+            dataSource={imageTasks}
+            pagination={{ pageSize: 8, showSizeChanger: false }}
+            scroll={{ x: 1080 }}
+          />
+        )}
+      </Card>
+
+      <Card title="视频任务" className="panel-card task-list-card">
+        {videoTasks.length === 0 && !loadingVideos ? (
+          <Empty description="暂无视频任务，请先从统一上传入口上传视频数据集。" image={Empty.PRESENTED_IMAGE_SIMPLE}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate("/")}>
+              去创建任务
+            </Button>
+          </Empty>
+        ) : (
+          <Table
+            rowKey="dataset_id"
+            loading={loadingVideos}
+            columns={videoColumns}
+            dataSource={videoTasks}
             pagination={{ pageSize: 8, showSizeChanger: false }}
             scroll={{ x: 1080 }}
           />

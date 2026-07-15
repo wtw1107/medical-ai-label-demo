@@ -20,19 +20,12 @@ export function AppLayout({ children }: PropsWithChildren) {
         key: "/",
         label: <Link to="/">上传与任务创建</Link>,
       },
-      {
-        key: "/video-datasets/new",
-        label: <Link to="/video-datasets/new">视频标注上传</Link>,
-      },
     ],
     [],
   );
 
-  const selectedKey = location.pathname.startsWith("/tasks")
-    ? "/tasks"
-    : location.pathname.startsWith("/video-datasets")
-      ? "/video-datasets/new"
-      : "/";
+  const selectedKey =
+    location.pathname.startsWith("/tasks") || location.pathname.startsWith("/video-datasets") ? "/tasks" : "/";
 
   return (
     <Layout className="app-shell">
@@ -62,7 +55,7 @@ export function AppLayout({ children }: PropsWithChildren) {
               AI 辅助标注工作台
             </Typography.Title>
             <Typography.Text className="page-subtitle">
-              负责上传、任务管理、预标注触发、视频审核与导出下载
+              统一管理图片任务与肺超声 B-line 视频关键帧分割任务
             </Typography.Text>
           </div>
         </Header>

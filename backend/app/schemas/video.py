@@ -6,10 +6,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.constants import (
     BLineGrade,
+    DataType,
     DatasetSplit,
     DeidentificationStatus,
     KeyFrameReviewStatus,
     KeyFrameReason,
+    TaskType,
     VideoAnnotationStatus,
     VideoQuality,
 )
@@ -97,6 +99,24 @@ class VideoDatasetSummaryResponse(BaseModel):
     keyframe_count: int
     split_summary: list[SplitSummaryItem]
     review_status_summary: list[ReviewSummaryItem]
+
+
+class VideoDatasetListItemResponse(BaseModel):
+    dataset_id: str
+    dataset_name: str
+    data_type: str = DataType.VIDEO.value
+    task_type: str = TaskType.VIDEO_BLINE_SEGMENTATION.value
+    patient_count: int
+    video_count: int
+    keyframe_count: int
+    annotated_count: int
+    reviewed_count: int
+    updated_at: datetime
+
+
+class VideoDatasetListResponse(BaseModel):
+    items: list[VideoDatasetListItemResponse]
+    total: int
 
 
 class VideoListResponse(BaseModel):

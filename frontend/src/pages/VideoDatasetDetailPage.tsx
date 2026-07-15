@@ -1,5 +1,5 @@
 import React from "react";
-import { Alert, App, Button, Card, Descriptions, Empty, Image, Space, Table, Tag, Typography } from "antd";
+import { Alert, App, Button, Card, Descriptions, Empty, Image, Space, Table, Tabs, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -20,7 +20,9 @@ function formatDateTime(value?: string | null) {
     return "-";
   }
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(date);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 function renderSplitSummary(items: SplitSummaryItem[]) {
@@ -72,7 +74,7 @@ export function VideoDatasetDetailPage() {
     } catch (error) {
       setSummary(null);
       setVideos([]);
-      message.error(error instanceof Error ? error.message : "加载视频数据集失败。");
+      message.error(error instanceof Error ? error.message : "加载视频任务详情失败。");
     } finally {
       setLoading(false);
     }
@@ -93,7 +95,7 @@ export function VideoDatasetDetailPage() {
       setExporting(true);
       const result = await exportBlineKeyframes(datasetId);
       window.open(result.download_url, "_blank", "noopener,noreferrer");
-      message.success(`导出完成：已标注 ${result.total_labeled_count} 张，跳过 ${result.skipped_count} 张。`);
+      message.success(`导出完成：已标注 ${result.total_labeled_count} 帧，跳过 ${result.skipped_count} 帧。`);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "导出 B-line 关键帧数据集失败。");
     } finally {
@@ -109,7 +111,14 @@ export function VideoDatasetDetailPage() {
         render: (_, record) => (
           <Space size={12}>
             {record.preview_image_url ? (
-              <Image src={record.preview_image_url} alt={record.filename} width={84} height={56} style={{ objectFit: "cover", borderRadius: 10 }} preview={false} />
+              <Image
+                src={record.preview_image_url}
+                alt={record.filename}
+                width={84}
+                height={56}
+                style={{ objectFit: "cover", borderRadius: 10 }}
+                preview={false}
+              />
             ) : null}
             <Space direction="vertical" size={0}>
               <Typography.Text strong>{record.filename}</Typography.Text>
@@ -169,6 +178,44 @@ export function VideoDatasetDetailPage() {
     [navigate],
   );
 
+  const summaryCard = (
+    <Card title="任务概览" className="panel-card" loading={loading}>
+      {summary ? (
+        <Descriptions column={1} size="small">
+          <Descriptions.Item label="dataset_id">{summary.dataset_id}</Descriptions.Item>
+          <Descriptions.Item label="data_type">{summary.data_type}</Descriptions.Item>
+          <Descriptions.Item label="任务类型">肺超声 B-line 视频关键帧分割</Descriptions.Item>
+          <Descriptions.Item label="视频数">{summary.video_count}</Descriptions.Item>
+          <Descriptions.Item label="患者数">{summary.patient_count}</Descriptions.Item>
+          <Descriptions.Item label="关键帧总数">{summary.keyframe_count}</Descriptions.Item>
+          <Descriptions.Item label="split 摘要">{renderSplitSummary(summary.split_summary)}</Descriptions.Item>
+          <Descriptions.Item label="review 摘要">{renderReviewSummary(summary.review_status_summary)}</Descriptions.Item>
+        </Descriptions>
+      ) : (
+        <Empty description="暂无任务概览" />
+      )}
+    </Card>
+  );
+
+  const videoTable = (
+    <Card title="视频列表" className="panel-card" extra={<Typography.Text>{`共 ${videos.length} 个视频`}</Typography.Text>}>
+      <Table
+        rowKey="id"
+        loading={loading}
+        columns={columns}
+        dataSource={videos}
+        pagination={{ pageSize: 8, showSizeChanger: false }}
+        scroll={{ x: 1200 }}
+      />
+      {!loading && videos.length === 0 ? <Empty description="暂无视频数据" /> : null}
+      {!loading && videos.length > 0 ? (
+        <Typography.Text type="secondary">
+          最近一条审核时间：{formatDateTime(videos.find((video) => video.reviewed_at)?.reviewed_at)}
+        </Typography.Text>
+      ) : null}
+    </Card>
+  );
+
   if (!datasetId) {
     return <Empty description="未找到数据集 ID" />;
   }
@@ -178,62 +225,84 @@ export function VideoDatasetDetailPage() {
       <Card className="hero-card">
         <Space direction="vertical" size={12} style={{ width: "100%" }}>
           <Typography.Title level={2} className="detail-title">
-            {summary?.dataset_name || "视频数据集详情"}
+            {summary?.dataset_name || "视频任务详情"}
           </Typography.Title>
           <Typography.Paragraph className="hero-description">
-            当前为肺超声 B 线视频审核与关键帧抽取 MVP。可先查看视频摘要，再进入单个视频完成 review 和记帧。
+            当前任务为肺超声 B-line 视频关键帧分割。先完成视频质量与 B-line 等级审核，再抽取关键帧、进入 Label Studio 画 polygon，最后导出 0/1 B-line mask 数据集。
           </Typography.Paragraph>
           <Space wrap>
-            <Button onClick={() => navigate("/video-datasets/new")}>上传新视频数据集</Button>
+            <Button onClick={() => navigate("/tasks")}>返回任务列表</Button>
+            <Button onClick={() => navigate("/")}>上传新数据</Button>
             <Button onClick={() => void loadData(datasetId)} loading={loading}>
               刷新
-            </Button>
-            <Button type="primary" onClick={() => void handleExport()} loading={exporting}>
-              导出 B-line 关键帧数据集
             </Button>
           </Space>
         </Space>
       </Card>
 
-      <Card title="数据集摘要" className="panel-card" loading={loading}>
-        {summary ? (
-          <Descriptions column={1} size="small">
-            <Descriptions.Item label="dataset_id">{summary.dataset_id}</Descriptions.Item>
-            <Descriptions.Item label="data_type">{summary.data_type}</Descriptions.Item>
-            <Descriptions.Item label="视频数">{summary.video_count}</Descriptions.Item>
-            <Descriptions.Item label="患者数">{summary.patient_count}</Descriptions.Item>
-            <Descriptions.Item label="关键帧总数">{summary.keyframe_count}</Descriptions.Item>
-            <Descriptions.Item label="split 摘要">{renderSplitSummary(summary.split_summary)}</Descriptions.Item>
-            <Descriptions.Item label="review 摘要">{renderReviewSummary(summary.review_status_summary)}</Descriptions.Item>
-          </Descriptions>
-        ) : (
-          <Empty description="暂无数据集摘要" />
-        )}
-      </Card>
-
-      <Card title="视频列表" className="panel-card" extra={<Typography.Text>{`共 ${videos.length} 个视频`}</Typography.Text>}>
-        <Alert
-          type="info"
-          showIcon
-          message="导出仅包含已标注关键帧，mask 为 0/1 binary PNG，并附带 manifest.json、manifest.csv、skipped.json 和 README.txt。"
-          style={{ marginBottom: 16 }}
-        />
-        <Table
-          rowKey="id"
-          loading={loading}
-          columns={columns}
-          dataSource={videos}
-          pagination={{ pageSize: 8, showSizeChanger: false }}
-          scroll={{ x: 1200 }}
-        />
-        {!loading && videos.length === 0 ? <Empty description="暂无视频数据" /> : null}
-        {!loading && videos.length > 0 ? (
-          <Typography.Text type="secondary">最近审核时间会在进入单个视频页保存 review 后更新。</Typography.Text>
-        ) : null}
-        {videos.some((video) => video.reviewed_at) ? (
-          <Typography.Text type="secondary">{`最近一条审核时间：${formatDateTime(videos.find((video) => video.reviewed_at)?.reviewed_at)}`}</Typography.Text>
-        ) : null}
-      </Card>
+      <Tabs
+        items={[
+          {
+            key: "overview",
+            label: "任务概览",
+            children: summaryCard,
+          },
+          {
+            key: "review",
+            label: "视频审核与选帧",
+            children: videoTable,
+          },
+          {
+            key: "keyframes",
+            label: "关键帧标注",
+            children: (
+              <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                <Alert
+                  type="info"
+                  showIcon
+                  message="进入单个视频后，可抽取关键帧、初始化 Label Studio 任务、同步关键帧标注状态。"
+                />
+                {videoTable}
+              </Space>
+            ),
+          },
+          {
+            key: "video-recheck",
+            label: "标注后视频复看",
+            children: (
+              <Card className="panel-card">
+                <Alert type="info" showIcon message="标注后完整视频复看功能将在下一阶段开放。" />
+              </Card>
+            ),
+          },
+          {
+            key: "review-flow",
+            label: "复核",
+            children: (
+              <Card className="panel-card">
+                <Alert type="info" showIcon message="关键帧复核与退回流程将在下一阶段开放。" />
+              </Card>
+            ),
+          },
+          {
+            key: "export",
+            label: "导出结果",
+            children: (
+              <Card title="导出 B-line 关键帧数据集" className="panel-card">
+                <Alert
+                  type="info"
+                  showIcon
+                  message="导出仅包含已标注关键帧，mask 为 0/1 binary PNG，并附带 manifest.json、manifest.csv、skipped.json 和 README.txt。"
+                  style={{ marginBottom: 16 }}
+                />
+                <Button type="primary" onClick={() => void handleExport()} loading={exporting}>
+                  导出 B-line 关键帧数据集
+                </Button>
+              </Card>
+            ),
+          },
+        ]}
+      />
     </Space>
   );
 }

@@ -1,4 +1,4 @@
-export type TaskType = "bbox" | "polygon" | "bbox_polygon";
+export type TaskType = "bbox" | "polygon" | "bbox_polygon" | "video_bline_segmentation";
 export type ExportFormat = "label_studio_json" | "simple_json" | "mask_png";
 export type ExportRange = "confirmed_only";
 export type ModelType = "detection" | "segmentation";
@@ -325,6 +325,24 @@ export interface VideoDatasetSummary {
   keyframe_count: number;
   split_summary: SplitSummaryItem[];
   review_status_summary: ReviewSummaryItem[];
+}
+
+export interface VideoDatasetListItem {
+  dataset_id: string;
+  dataset_name: string;
+  data_type: "video";
+  task_type: "video_bline_segmentation";
+  patient_count: number;
+  video_count: number;
+  keyframe_count: number;
+  annotated_count: number;
+  reviewed_count: number;
+  updated_at: string;
+}
+
+export interface VideoDatasetListResponse {
+  items: VideoDatasetListItem[];
+  total: number;
 }
 
 export interface VideoListResponse {
