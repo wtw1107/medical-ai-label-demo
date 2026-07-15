@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL-}
     ports:
       - "80:80"
     depends_on:
@@ -28,7 +28,7 @@ services:
       MODEL_SERVICE_URL: ${MODEL_SERVICE_URL:-http://model_service:9000}
       DEFAULT_USER_ID: ${DEFAULT_USER_ID:-deployment_demo_user}
     volumes:
-      - ${APP_DATA_DIR:-/srv/medical-ai-label-demo/data}:${DATA_ROOT:-/data}
+      - ${APP_DATA_DIR:-/data/medical-ai-label-demo/data}:${DATA_ROOT:-/data}
     depends_on:
       - model_service
       - label-studio
@@ -49,8 +49,11 @@ services:
     image: heartexlabs/label-studio:latest
     environment:
       LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK: "true"
+      LABEL_STUDIO_HOST: ${LABEL_STUDIO_URL}
+      CSRF_TRUSTED_ORIGINS: ${PUBLIC_BASE_URL}
+      SECRET_KEY: ${LABEL_STUDIO_SECRET_KEY}
     volumes:
-      - ${LABEL_STUDIO_DATA_DIR:-/srv/medical-ai-label-demo/label-studio}:/label-studio/data
+      - ${LABEL_STUDIO_DATA_DIR:-/data/medical-ai-label-demo/label-studio}:/label-studio/data
     restart: unless-stopped
 
 networks:

@@ -1,6 +1,7 @@
 import axios, { AxiosError } from "axios";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+const apiBaseUrl = configuredApiBaseUrl === undefined ? "http://localhost:8000" : configuredApiBaseUrl;
 
 export const apiClient = axios.create({
   baseURL: apiBaseUrl,
@@ -77,5 +78,8 @@ export function buildAbsoluteUrl(path: string) {
   if (/^https?:\/\//.test(path)) {
     return path;
   }
-  return `${apiBaseUrl}${path}`;
+  if (!apiBaseUrl) {
+    return path;
+  }
+  return `${apiBaseUrl.replace(/\/$/, "")}${path}`;
 }
