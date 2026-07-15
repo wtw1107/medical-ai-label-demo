@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, replace
 
 from fastapi import HTTPException
 
@@ -142,12 +143,22 @@ MODEL_REGISTRY: dict[str, ModelRegistryItem] = {
 }
 
 
+def _apply_runtime_status(model: ModelRegistryItem) -> ModelRegistryItem:
+    if model.model_id != "real_detection_v1":
+        return model
+    api_key_env = (model.runtime or {}).get("api_key_env", "ROBOFLOW_API_KEY")
+    if os.getenv(api_key_env, "").strip():
+        return model
+    return replace(model, status="not_configured")
+
+
 def list_models() -> list[ModelRegistryItem]:
-    return list(MODEL_REGISTRY.values())
+    return [_apply_runtime_status(model) for model in MODEL_REGISTRY.values()]
 
 
 def get_model(model_id: str) -> ModelRegistryItem | None:
-    return MODEL_REGISTRY.get(model_id)
+    model = MODEL_REGISTRY.get(model_id)
+    return _apply_runtime_status(model) if model is not None else None
 
 
 def get_default_model_id(task_type: str, model_type: str) -> str:

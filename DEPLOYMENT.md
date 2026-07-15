@@ -32,8 +32,8 @@ Recommended application directory:
 Recommended persistent data directories:
 
 ```text
-/srv/medical-ai-label-demo/data
-/srv/medical-ai-label-demo/label-studio
+/data/medical-ai-label-demo/data
+/data/medical-ai-label-demo/label-studio
 ```
 
 Notes:
@@ -55,6 +55,7 @@ Then edit `.env.production` and set:
 - `PUBLIC_BASE_URL`
 - `LABEL_STUDIO_URL`
 - `LABEL_STUDIO_API_TOKEN`
+- `LABEL_STUDIO_SECRET_KEY`
 - `ROBOFLOW_API_KEY` if external Roboflow inference is allowed
 
 Important:
@@ -68,9 +69,9 @@ Important:
 Create persistent directories:
 
 ```bash
-sudo mkdir -p /srv/medical-ai-label-demo/data
-sudo mkdir -p /srv/medical-ai-label-demo/label-studio
-sudo chown -R $USER:$USER /srv/medical-ai-label-demo
+sudo mkdir -p /data/medical-ai-label-demo/data
+sudo mkdir -p /data/medical-ai-label-demo/label-studio
+sudo chown -R $USER:$USER /data/medical-ai-label-demo
 ```
 
 Prepare the environment file:
@@ -160,6 +161,8 @@ allow_origins=["*"]
 
 Before public rollout, tighten CORS to the actual production origin.
 
+This deployment guide is for an HTTP internal test environment. HTTPS, domain binding, and formal access control are not complete yet.
+
 ## 11. Roboflow External API Risk Notes
 
 - `real_detection_v1` depends on an external Roboflow API when `ROBOFLOW_API_KEY` is configured
@@ -196,7 +199,37 @@ Recommended production value:
 
 That keeps browser requests same-origin and lets Nginx proxy them to the backend.
 
-## 14. Label Studio URL Note
+## 14. Label Studio Setup
+
+Connect to the server using the configured SSH alias:
+
+```bash
+ssh lab-server
+```
+
+Do not store jump host or server passwords in the repository.
+
+After the first deployment:
+
+1. Open `/label-studio/` through the server URL.
+2. Create the initial Label Studio administrator account.
+3. Open Label Studio account settings and create or copy a Personal Access Token.
+4. Write the token into `.env.production` as `LABEL_STUDIO_API_TOKEN`.
+5. Restart the backend after changing the token:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d backend
+```
+
+Set a stable `LABEL_STUDIO_SECRET_KEY` in `.env.production` before relying on sessions. If this value changes, existing Label Studio sessions may be invalidated.
+
+After changing `LABEL_STUDIO_SECRET_KEY`, `LABEL_STUDIO_URL`, or `PUBLIC_BASE_URL`, restart Label Studio and the frontend gateway:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d label-studio frontend
+```
+
+## 15. Label Studio URL Note
 
 Because the backend both calls Label Studio APIs and returns Label Studio URLs to the browser, `LABEL_STUDIO_URL` should be set to the externally reachable reverse-proxy URL, for example:
 
@@ -205,3 +238,24 @@ http://your-domain.example/label-studio
 ```
 
 Do not set it to `http://label-studio:8080` in production, otherwise browser-facing links will point to an internal hostname.
+
+## 16. Deployment Verification
+
+Run these checks after deployment:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production config
+docker compose -f docker-compose.prod.yml --env-file .env.production ps
+curl -I http://127.0.0.1/
+curl http://127.0.0.1/health
+curl http://127.0.0.1/api/models
+curl -IL http://127.0.0.1/label-studio/
+```
+
+Expected results:
+
+- only the frontend container publishes port `80`
+- `/health` returns backend JSON
+- `/api/models` returns the model registry
+- `/label-studio/` reaches the Label Studio login flow
+- `real_detection_v1` is `not_configured` when `ROBOFLOW_API_KEY` is empty
