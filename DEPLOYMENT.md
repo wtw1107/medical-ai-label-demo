@@ -17,6 +17,7 @@ Recommended external exposure:
 Recommended reverse proxy paths:
 
 - `/` -> frontend static app
+- `/label` and `/label/` -> redirect to `/`
 - `/api/` -> backend
 - `/media/` -> backend media files
 - `/label-studio/` -> Label Studio
@@ -194,10 +195,10 @@ If your deployment allows larger files or more users, review:
 Recommended production value:
 
 ```text
-/api
+empty string
 ```
 
-That keeps browser requests same-origin and lets Nginx proxy them to the backend.
+That keeps browser requests same-origin. The frontend already calls `/api/...`, and Nginx proxies those requests to the backend.
 
 ## 14. Label Studio Setup
 
@@ -247,6 +248,8 @@ Run these checks after deployment:
 docker compose -f docker-compose.prod.yml --env-file .env.production config
 docker compose -f docker-compose.prod.yml --env-file .env.production ps
 curl -I http://127.0.0.1/
+curl -I http://127.0.0.1/label
+curl -I http://127.0.0.1/label/
 curl http://127.0.0.1/health
 curl http://127.0.0.1/api/models
 curl -IL http://127.0.0.1/label-studio/
@@ -255,7 +258,28 @@ curl -IL http://127.0.0.1/label-studio/
 Expected results:
 
 - only the frontend container publishes port `80`
+- `/label` and `/label/` redirect to `/`
 - `/health` returns backend JSON
 - `/api/models` returns the model registry
 - `/label-studio/` reaches the Label Studio login flow
 - `real_detection_v1` is `not_configured` when `ROBOFLOW_API_KEY` is empty
+
+For public access checks, test from a network outside the school environment:
+
+- mobile browser with Wi-Fi disabled, using 4G/5G
+- or a Windows laptop connected to a phone hotspot with VPN and proxy disabled
+
+Open:
+
+```text
+http://49.52.18.109/
+http://49.52.18.109/label
+```
+
+Watch the frontend gateway logs while testing:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production logs -f frontend
+```
+
+If no new frontend logs appear during the external test, the request is not reaching Nginx and TCP `80` likely needs to be allowed by the upstream network or firewall.
