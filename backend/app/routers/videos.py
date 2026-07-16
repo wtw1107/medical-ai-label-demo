@@ -19,6 +19,7 @@ from app.schemas.video import (
     KeyFrameLabelStudioInitResponse,
     KeyFrameLabelStudioSyncResponse,
     KeyFrameListResponse,
+    CvatAccessResponse,
     CvatAnnotationSummaryResponse,
     CvatHealthResponse,
     CvatInitResponse,
@@ -82,6 +83,19 @@ def upload_video_dataset(
             video_metadata = [VideoUploadMetadata.model_validate(item) for item in raw_items]
         except (json.JSONDecodeError, ValidationError, ValueError) as exc:
             raise HTTPException(status_code=400, detail=f"Invalid metadata_json: {exc}") from exc
+        errors: list[str] = []
+        for item in video_metadata:
+            missing: list[str] = []
+            if not item.patient_uid.strip():
+                missing.append("patient_uid")
+            if not item.lung_zone.strip():
+                missing.append("lung_zone")
+            if not item.deid_status.strip() or item.deid_status.strip() == "unknown":
+                missing.append("deid_status")
+            if missing:
+                errors.append(f"{item.filename}: missing {', '.join(missing)}")
+        if errors:
+            raise HTTPException(status_code=400, detail="Invalid video metadata. " + "; ".join(errors))
     return service.upload_video_dataset(
         db=db,
         dataset_name=dataset_name,
@@ -114,7 +128,16 @@ def list_video_datasets(
     items: list[VideoDatasetListItemResponse] = []
     for dataset in datasets:
         patient_count = db.query(Patient).filter(Patient.dataset_id == dataset.id).count()
-        video_count = db.query(VideoItem).filter(VideoItem.dataset_id == dataset.id).count()
+        videos = db.query(VideoItem).filter(VideoItem.dataset_id == dataset.id).all()
+        video_count = len(videos)
+        initialized_video_count = sum(1 for video in videos if video.cvat_task_id is not None and video.cvat_job_id is not None)
+        uninitialized_video_count = max(video_count - initialized_video_count, 0)
+        cvat_status_summary: dict[str, int] = defaultdict(int)
+        for video in videos:
+            cvat_status_summary[video.cvat_status or "not_initialized"] += 1
+        effective_annotation_backend = dataset.annotation_backend
+        if effective_annotation_backend is None and (dataset.cvat_project_id is not None or initialized_video_count > 0):
+            effective_annotation_backend = "cvat"
         keyframe_count = (
             db.query(KeyFrame)
             .join(VideoItem, KeyFrame.video_id == VideoItem.id)
@@ -142,11 +165,18 @@ def list_video_datasets(
                 dataset_id=dataset.id,
                 dataset_name=dataset.name,
                 data_type=dataset.data_type,
+                annotation_backend=effective_annotation_backend,
                 patient_count=patient_count,
                 video_count=video_count,
                 keyframe_count=keyframe_count,
                 annotated_count=annotated_count,
                 reviewed_count=reviewed_count,
+                initialized_video_count=initialized_video_count,
+                uninitialized_video_count=uninitialized_video_count,
+                selected_keyframe_count=keyframe_count,
+                unresolved_issue_count=0,
+                cvat_status_summary=dict(cvat_status_summary),
+                created_at=dataset.created_at,
                 updated_at=dataset.updated_at,
             )
         )
@@ -263,6 +293,15 @@ def get_video_cvat_annotations_summary(
 ) -> CvatAnnotationSummaryResponse:
     service = CvatService(get_settings())
     return service.get_annotations_summary(db=db, video_id=video_id)
+
+
+@router.get("/videos/{video_id}/cvat/access", response_model=CvatAccessResponse)
+def get_video_cvat_access(
+    video_id: str,
+    db: Session = Depends(get_db),
+) -> CvatAccessResponse:
+    service = CvatService(get_settings())
+    return service.get_video_access(db=db, video_id=video_id)
 
 
 @router.post("/video-datasets/{dataset_id}/exports/cvat-bline-test", response_model=VideoKeyframeExportResponse)

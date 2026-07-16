@@ -128,11 +128,18 @@ class VideoDatasetListItemResponse(BaseModel):
     dataset_name: str
     data_type: str = DataType.VIDEO.value
     task_type: str = TaskType.VIDEO_BLINE_SEGMENTATION.value
+    annotation_backend: str | None = None
     patient_count: int
     video_count: int
     keyframe_count: int
     annotated_count: int
     reviewed_count: int
+    initialized_video_count: int = 0
+    uninitialized_video_count: int = 0
+    selected_keyframe_count: int = 0
+    unresolved_issue_count: int = 0
+    cvat_status_summary: dict[str, int] = Field(default_factory=dict)
+    created_at: datetime
     updated_at: datetime
 
 
@@ -247,6 +254,9 @@ class CvatHealthResponse(BaseModel):
     reachable: bool
     authenticated: bool
     server_version: str | None = None
+    authenticated_username: str | None = None
+    default_assignee_username: str | None = None
+    organization_slug: str | None = None
     review_supported: bool | None = None
     issue_supported: bool | None = None
     consensus_supported: bool | None = None
@@ -266,6 +276,8 @@ class CvatVideoMappingItem(BaseModel):
     uncertain_frame_count: int = 0
     polygon_count: int = 0
     issue_count: int = 0
+    unresolved_issue_count: int = 0
+    resolved_issue_count: int = 0
     error: str | None = None
 
 
@@ -275,7 +287,13 @@ class CvatInitResponse(BaseModel):
     cvat_project_url: str | None = None
     created_task_count: int
     reused_task_count: int
+    repaired_task_count: int = 0
+    failed_task_count: int = 0
     videos: list[CvatVideoMappingItem]
+    owner_username: str | None = None
+    assignee_username: str | None = None
+    organization_slug: str | None = None
+    warning: str | None = None
     error: str | None = None
 
 
@@ -291,11 +309,32 @@ class CvatSyncResponse(BaseModel):
 class CvatAnnotationSummaryResponse(BaseModel):
     video_id: str
     frame_count: int | None = None
+    selected_keyframe_count: int = 0
+    pending_frame_count: int = 0
     keyframe_tag_count: int = 0
     positive_frame_count: int = 0
     negative_frame_count: int = 0
     uncertain_frame_count: int = 0
     polygon_count: int = 0
     issue_count: int = 0
+    unresolved_issue_count: int = 0
+    resolved_issue_count: int = 0
+    cvat_task_status: str | None = None
+    cvat_job_state: str | None = None
+    cvat_job_stage: str | None = None
+    annotation_updated_at: datetime | None = None
     review_status: str | None = None
     error: str | None = None
+
+
+class CvatAccessResponse(BaseModel):
+    video_id: str
+    initialized: bool
+    task_exists: bool
+    job_exists: bool
+    owner_username: str | None = None
+    assignee_username: str | None = None
+    organization_slug: str | None = None
+    job_url: str | None = None
+    access_ready: bool
+    warning: str | None = None

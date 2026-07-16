@@ -5,6 +5,7 @@ import type {
   KeyFrameLabelStudioInitResponse,
   KeyFrameLabelStudioSyncResponse,
   KeyFrameListResponse,
+  CvatAnnotationSummaryResponse,
   CvatHealthResponse,
   CvatInitResponse,
   CvatSyncResponse,
@@ -16,6 +17,7 @@ import type {
   VideoListResponse,
   VideoReview,
   VideoReviewUpdateRequest,
+  CvatAccessResponse,
 } from "../types/api";
 import { apiClient } from "./client";
 
@@ -116,6 +118,16 @@ export async function initDatasetCvat(datasetId: string) {
 
 export async function syncDatasetCvat(datasetId: string) {
   const response = await apiClient.post<CvatSyncResponse>(`/api/video-datasets/${datasetId}/cvat/sync`);
+  return response.data;
+}
+
+export async function getCvatAnnotationSummary(videoId: string) {
+  const response = await apiClient.get<CvatAnnotationSummaryResponse>(`/api/videos/${videoId}/cvat/annotations-summary`);
+  return response.data;
+}
+
+export async function getCvatAccess(videoId: string) {
+  const response = await apiClient.get<CvatAccessResponse>(`/api/videos/${videoId}/cvat/access`);
   return response.data;
 }
 

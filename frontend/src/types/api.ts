@@ -341,11 +341,18 @@ export interface VideoDatasetListItem {
   dataset_name: string;
   data_type: "video";
   task_type: "video_bline_segmentation";
+  annotation_backend: string | null;
   patient_count: number;
   video_count: number;
   keyframe_count: number;
   annotated_count: number;
   reviewed_count: number;
+  initialized_video_count: number;
+  uninitialized_video_count: number;
+  selected_keyframe_count: number;
+  unresolved_issue_count: number;
+  cvat_status_summary: Record<string, number>;
+  created_at: string;
   updated_at: string;
 }
 
@@ -469,6 +476,9 @@ export interface CvatHealthResponse {
   reachable: boolean;
   authenticated: boolean;
   server_version: string | null;
+  authenticated_username: string | null;
+  default_assignee_username: string | null;
+  organization_slug: string | null;
   review_supported: boolean | null;
   issue_supported: boolean | null;
   consensus_supported: boolean | null;
@@ -488,6 +498,8 @@ export interface CvatVideoMappingItem {
   uncertain_frame_count: number;
   polygon_count: number;
   issue_count: number;
+  unresolved_issue_count: number;
+  resolved_issue_count: number;
   error: string | null;
 }
 
@@ -497,7 +509,13 @@ export interface CvatInitResponse {
   cvat_project_url: string | null;
   created_task_count: number;
   reused_task_count: number;
+  repaired_task_count: number;
+  failed_task_count: number;
   videos: CvatVideoMappingItem[];
+  owner_username: string | null;
+  assignee_username: string | null;
+  organization_slug: string | null;
+  warning: string | null;
   error: string | null;
 }
 
@@ -513,12 +531,33 @@ export interface CvatSyncResponse {
 export interface CvatAnnotationSummaryResponse {
   video_id: string;
   frame_count: number | null;
+  selected_keyframe_count: number;
+  pending_frame_count: number;
   keyframe_tag_count: number;
   positive_frame_count: number;
   negative_frame_count: number;
   uncertain_frame_count: number;
   polygon_count: number;
   issue_count: number;
+  unresolved_issue_count: number;
+  resolved_issue_count: number;
+  cvat_task_status: string | null;
+  cvat_job_state: string | null;
+  cvat_job_stage: string | null;
+  annotation_updated_at: string | null;
   review_status: string | null;
   error: string | null;
+}
+
+export interface CvatAccessResponse {
+  video_id: string;
+  initialized: boolean;
+  task_exists: boolean;
+  job_exists: boolean;
+  owner_username: string | null;
+  assignee_username: string | null;
+  organization_slug: string | null;
+  job_url: string | null;
+  access_ready: boolean;
+  warning: string | null;
 }

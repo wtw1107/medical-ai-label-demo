@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import {
   extractVideoKeyframes,
+  getVideoDataset,
   initKeyframeLabelStudio,
   listDatasetVideos,
   listVideoKeyframes,
@@ -102,6 +103,12 @@ export function VideoReviewPage() {
   const loadPageData = async (currentDatasetId: string, currentVideoId: string) => {
     setLoading(true);
     try {
+      const dataset = await getVideoDataset(currentDatasetId);
+      if (dataset.annotation_backend === "cvat") {
+        message.info("该视频任务使用 CVAT 视频标注流程，已返回统一视频任务详情页。");
+        navigate(`/tasks/video/${currentDatasetId}`, { replace: true });
+        return;
+      }
       const [videosResponse, keyframesResponse] = await Promise.all([
         listDatasetVideos(currentDatasetId),
         listVideoKeyframes(currentVideoId),

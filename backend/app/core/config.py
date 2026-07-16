@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     cvat_password: str = Field(default="", alias="CVAT_PASSWORD")
     cvat_access_token: str = Field(default="", alias="CVAT_ACCESS_TOKEN")
     cvat_organization: str = Field(default="", alias="CVAT_ORGANIZATION")
+    cvat_default_assignee_username: str = Field(default="", alias="CVAT_DEFAULT_ASSIGNEE_USERNAME")
     model_service_url: str = Field(default="http://localhost:9000", alias="MODEL_SERVICE_URL")
     default_user_id: str = Field(default="local_demo_user", alias="DEFAULT_USER_ID")
     project_root: Path = Field(default_factory=lambda: Path(__file__).resolve().parents[3])
