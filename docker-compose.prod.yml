@@ -26,6 +26,11 @@ services:
       LABEL_STUDIO_URL: ${LABEL_STUDIO_URL}
       LABEL_STUDIO_API_TOKEN: ${LABEL_STUDIO_API_TOKEN}
       MODEL_SERVICE_URL: ${MODEL_SERVICE_URL:-http://model_service:9000}
+      CVAT_URL: ${CVAT_URL:?CVAT_URL is required}
+      CVAT_USERNAME: ${CVAT_USERNAME:?CVAT_USERNAME is required}
+      CVAT_PASSWORD: ${CVAT_PASSWORD:?CVAT_PASSWORD is required}
+      CVAT_DEFAULT_ASSIGNEE_USERNAME: ${CVAT_DEFAULT_ASSIGNEE_USERNAME:-}
+      CVAT_ORGANIZATION: ${CVAT_ORGANIZATION:-}
       DEFAULT_USER_ID: ${DEFAULT_USER_ID:-deployment_demo_user}
     volumes:
       - ${APP_DATA_DIR:-/data/medical-ai-label-demo/data}:${DATA_ROOT:-/data}
