@@ -1,13 +1,31 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { InboxOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, Col, Form, Input, Radio, Row, Select, Space, Steps, Switch, Typography, Upload, message } from "antd";
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Form,
+  Input,
+  Radio,
+  Row,
+  Select,
+  Space,
+  Steps,
+  Switch,
+  Table,
+  Typography,
+  Upload,
+  message,
+} from "antd";
+import type { ColumnsType } from "antd/es/table";
 import type { RcFile, UploadFile } from "antd/es/upload/interface";
 import { useNavigate } from "react-router-dom";
 
 import { uploadDataset } from "../api/datasets";
 import { createTask } from "../api/tasks";
-import { uploadVideoDataset } from "../api/videos";
-import type { DatasetUploadResponse, TaskType, VideoDatasetUploadResponse } from "../types/api";
+import { getCvatHealth, uploadVideoDataset } from "../api/videos";
+import type { CvatHealthResponse, DatasetUploadResponse, TaskType, VideoDatasetUploadResponse, VideoUploadMetadata } from "../types/api";
 
 type DetectedDataType = "image" | "video" | "mixed" | "unknown";
 type ImageTaskType = "bbox" | "polygon" | "bbox_polygon";
@@ -21,14 +39,9 @@ interface UploadFormValues {
   detModelId?: string;
   segModelId?: string;
   requireHumanConfirm: boolean;
-  patientUid?: string;
-  lungZone?: string;
-  probe?: string;
-  device?: string;
-  depth?: string;
-  orientation?: string;
-  deidStatus?: string;
 }
+
+type VideoMetadataRow = VideoUploadMetadata & { key: string };
 
 const imageExtensions = new Set(["jpg", "jpeg", "png", "bmp", "tif", "tiff", "zip"]);
 const videoExtensions = new Set(["mp4", "avi", "mov", "mkv"]);
@@ -80,12 +93,30 @@ function getFiles(fileList: UploadFile[]) {
     .filter((item): item is RcFile => item instanceof File);
 }
 
+function makeMetadataRow(file: UploadFile, existing?: VideoMetadataRow): VideoMetadataRow {
+  return {
+    key: file.uid,
+    filename: file.name,
+    patient_uid: existing?.patient_uid || "",
+    lung_zone: existing?.lung_zone || "",
+    probe: existing?.probe || "",
+    device: existing?.device || "",
+    depth: existing?.depth || "",
+    orientation: existing?.orientation || "",
+    deid_status: existing?.deid_status || "unknown",
+  };
+}
+
 export function UploadPage() {
   const [form] = Form.useForm<UploadFormValues>();
+  const [batchForm] = Form.useForm<Partial<VideoUploadMetadata>>();
   const navigate = useNavigate();
   const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [videoRows, setVideoRows] = useState<VideoMetadataRow[]>([]);
+  const [selectedVideoRowKeys, setSelectedVideoRowKeys] = useState<React.Key[]>([]);
   const [imageUploadResult, setImageUploadResult] = useState<DatasetUploadResponse | null>(null);
   const [videoUploadResult, setVideoUploadResult] = useState<VideoDatasetUploadResponse | null>(null);
+  const [cvatHealth, setCvatHealth] = useState<CvatHealthResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const detectedType = useMemo(() => detectDataType(fileList), [fileList]);
@@ -96,21 +127,64 @@ export function UploadPage() {
   useEffect(() => {
     if (detectedType === "video") {
       form.setFieldsValue({ taskType: "video_bline_segmentation" });
+      setVideoRows((currentRows) =>
+        fileList.map((file) => makeMetadataRow(file, currentRows.find((row) => row.key === file.uid))),
+      );
       return;
     }
+    setVideoRows([]);
+    setSelectedVideoRowKeys([]);
     if (detectedType === "image" && form.getFieldValue("taskType") === "video_bline_segmentation") {
       form.setFieldsValue({ taskType: "bbox_polygon" });
     }
-  }, [detectedType, form]);
+  }, [detectedType, fileList, form]);
 
-  const steps = useMemo(
-    () => [
-      { title: "上传图片或视频" },
-      { title: "按数据类型选择任务" },
-      { title: "进入任务详情继续标注" },
-    ],
-    [],
-  );
+  useEffect(() => {
+    if (detectedType !== "video") {
+      return;
+    }
+    void getCvatHealth()
+      .then(setCvatHealth)
+      .catch(() => setCvatHealth(null));
+  }, [detectedType]);
+
+  const updateVideoRow = (key: string, patch: Partial<VideoMetadataRow>) => {
+    setVideoRows((rows) => rows.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+  };
+
+  const applyBatch = (mode: "selected" | "all") => {
+    const values = batchForm.getFieldsValue();
+    const patch = Object.fromEntries(
+      Object.entries(values).filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== ""),
+    ) as Partial<VideoMetadataRow>;
+    if (Object.keys(patch).length === 0) {
+      message.warning("请先填写要批量应用的视频元数据。");
+      return;
+    }
+    const selected = new Set(selectedVideoRowKeys.map(String));
+    if (mode === "selected" && selected.size === 0) {
+      message.warning("请先选择要批量填充的视频行。");
+      return;
+    }
+    setVideoRows((rows) =>
+      rows.map((row) => (mode === "all" || selected.has(row.key) ? { ...row, ...patch } : row)),
+    );
+    message.success(mode === "all" ? "已应用到全部视频。" : "已应用到选中视频。");
+  };
+
+  const validateVideoMetadata = () => {
+    for (const row of videoRows) {
+      if (!row.patient_uid.trim()) {
+        message.error(`请填写 ${row.filename} 的 patient_uid。`);
+        return false;
+      }
+      if (!row.lung_zone.trim()) {
+        message.error(`请填写 ${row.filename} 的 lung_zone。`);
+        return false;
+      }
+    }
+    return true;
+  };
 
   const handleSubmit = async () => {
     try {
@@ -119,7 +193,7 @@ export function UploadPage() {
         return;
       }
       if (detectedType === "mixed") {
-        message.error("当前一个数据集只能包含一种数据类型，请分别上传图片和视频。");
+        message.error("同一个数据集只能包含一种数据类型，请分开上传图片和视频。");
         return;
       }
       if (detectedType === "unknown") {
@@ -139,15 +213,17 @@ export function UploadPage() {
       setVideoUploadResult(null);
 
       if (detectedType === "video") {
+        if (!validateVideoMetadata()) {
+          return;
+        }
         const result = await uploadVideoDataset({
           dataset_name: values.datasetName.trim(),
-          patient_uid: values.patientUid?.trim() || "",
-          lung_zone: values.lungZone?.trim(),
-          probe: values.probe?.trim(),
-          device: values.device?.trim(),
-          depth: values.depth?.trim(),
-          orientation: values.orientation?.trim(),
-          deid_status: values.deidStatus,
+          annotation_backend: cvatHealth?.reachable && cvatHealth.authenticated ? "cvat" : "label_studio",
+          metadata: videoRows.map(({ key: _key, ...row }) => ({
+            ...row,
+            patient_uid: row.patient_uid.trim(),
+            lung_zone: row.lung_zone.trim(),
+          })),
           files,
         });
         setVideoUploadResult(result);
@@ -186,13 +262,7 @@ export function UploadPage() {
 
   const typeMessage = useMemo(() => {
     if (detectedType === "mixed") {
-      return (
-        <Alert
-          type="error"
-          showIcon
-          message="当前一个数据集只能包含一种数据类型，请分别上传图片和视频。"
-        />
-      );
+      return <Alert type="error" showIcon message="同一个数据集只能包含一种数据类型，请分开上传图片和视频。" />;
     }
     if (detectedType === "video") {
       return (
@@ -200,19 +270,12 @@ export function UploadPage() {
           type="info"
           showIcon
           message="已识别为视频数据集"
-          description="本阶段仅支持肺超声 B-line 视频关键帧分割任务。"
+          description="当前视频任务类型固定为肺超声 B-line 视频关键帧分割。请为每个视频单独填写 patient_uid 和 lung_zone。"
         />
       );
     }
     if (detectedType === "image") {
-      return (
-        <Alert
-          type="info"
-          showIcon
-          message="已识别为图片数据集"
-          description="可创建 bbox、polygon 或 bbox + polygon 图片标注任务。"
-        />
-      );
+      return <Alert type="info" showIcon message="已识别为图片数据集" description="可创建 bbox、polygon 或 bbox + polygon 图片标注任务。" />;
     }
     return (
       <Alert
@@ -224,6 +287,82 @@ export function UploadPage() {
     );
   }, [detectedType]);
 
+  const metadataColumns = useMemo<ColumnsType<VideoMetadataRow>>(
+    () => [
+      {
+        title: "filename",
+        dataIndex: "filename",
+        width: 220,
+        fixed: "left",
+      },
+      {
+        title: "patient_uid",
+        dataIndex: "patient_uid",
+        width: 180,
+        render: (_, row) => (
+          <Input
+            value={row.patient_uid}
+            placeholder="脱敏患者 UID"
+            onChange={(event) => updateVideoRow(row.key, { patient_uid: event.target.value })}
+          />
+        ),
+      },
+      {
+        title: "lung_zone",
+        dataIndex: "lung_zone",
+        width: 150,
+        render: (_, row) => (
+          <Input value={row.lung_zone} placeholder="R1 / L2" onChange={(event) => updateVideoRow(row.key, { lung_zone: event.target.value })} />
+        ),
+      },
+      {
+        title: "probe",
+        dataIndex: "probe",
+        width: 140,
+        render: (_, row) => <Input value={row.probe || ""} onChange={(event) => updateVideoRow(row.key, { probe: event.target.value })} />,
+      },
+      {
+        title: "device",
+        dataIndex: "device",
+        width: 150,
+        render: (_, row) => <Input value={row.device || ""} onChange={(event) => updateVideoRow(row.key, { device: event.target.value })} />,
+      },
+      {
+        title: "depth",
+        dataIndex: "depth",
+        width: 120,
+        render: (_, row) => <Input value={row.depth || ""} onChange={(event) => updateVideoRow(row.key, { depth: event.target.value })} />,
+      },
+      {
+        title: "orientation",
+        dataIndex: "orientation",
+        width: 160,
+        render: (_, row) => (
+          <Input value={row.orientation || ""} onChange={(event) => updateVideoRow(row.key, { orientation: event.target.value })} />
+        ),
+      },
+      {
+        title: "deid_status",
+        dataIndex: "deid_status",
+        width: 150,
+        render: (_, row) => (
+          <Select
+            value={row.deid_status || "unknown"}
+            style={{ width: "100%" }}
+            onChange={(value) => updateVideoRow(row.key, { deid_status: value })}
+            options={[
+              { label: "unknown", value: "unknown" },
+              { label: "passed", value: "passed" },
+              { label: "failed", value: "failed" },
+              { label: "needs_review", value: "needs_review" },
+            ]}
+          />
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
     <Space direction="vertical" size={24} style={{ width: "100%" }}>
       <Card className="hero-card">
@@ -231,11 +370,19 @@ export function UploadPage() {
           <Col xs={24} xl={15}>
             <Typography.Title className="hero-title">统一上传与任务创建</Typography.Title>
             <Typography.Paragraph className="hero-description">
-              从同一个入口上传医学图片或肺超声 cine-loop 视频。平台会根据文件类型显示可用任务类型，并把图片任务与视频任务带到对应的任务详情流程。
+              从同一个入口上传医学图片或肺超声 cine-loop 视频。平台会按文件类型显示可用任务，并进入对应的图片或视频标注流程。
             </Typography.Paragraph>
           </Col>
           <Col xs={24} xl={9}>
-            <Steps current={1} direction="vertical" items={steps} />
+            <Steps
+              current={1}
+              direction="vertical"
+              items={[
+                { title: "上传图片或视频" },
+                { title: "按数据类型选择任务" },
+                { title: "进入任务详情继续标注" },
+              ]}
+            />
           </Col>
         </Row>
       </Card>
@@ -249,7 +396,6 @@ export function UploadPage() {
           detModelId: "mock_detection",
           segModelId: "mock_segmentation",
           requireHumanConfirm: true,
-          deidStatus: "unknown",
         }}
       >
         <Row gutter={[24, 24]}>
@@ -281,9 +427,7 @@ export function UploadPage() {
                     <InboxOutlined />
                   </p>
                   <p className="ant-upload-text">拖拽图片、ZIP 或视频到这里，或点击选择文件</p>
-                  <p className="ant-upload-hint">
-                    单个数据集必须只包含一种数据类型；图片和视频请分开上传。后端仍会执行最终文件解析和安全校验。
-                  </p>
+                  <p className="ant-upload-hint">单个数据集必须只包含一种数据类型；图片和视频请分开上传。</p>
                 </Upload.Dragger>
               </Form.Item>
               {typeMessage}
@@ -343,59 +487,18 @@ export function UploadPage() {
                     <Switch checkedChildren="需要" unCheckedChildren="跳过" />
                   </Form.Item>
                 </>
-              ) : null}
-
-              {isVideo ? (
-                <>
-                  <Form.Item
-                    label="患者 UID"
-                    name="patientUid"
-                    rules={[
-                      { required: true, message: "请输入脱敏后的患者 UID" },
-                      { whitespace: true, message: "患者 UID 不能为空白" },
-                    ]}
-                  >
-                    <Input placeholder="请勿填写患者真实姓名或身份证等隐私信息" />
-                  </Form.Item>
-                  <Row gutter={12}>
-                    <Col span={12}>
-                      <Form.Item label="肺区" name="lungZone">
-                        <Input placeholder="例如：R1 / L2" />
-                      </Form.Item>
-                    </Col>
-                    <Col span={12}>
-                      <Form.Item label="探头" name="probe">
-                        <Input placeholder="例如：linear" />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                  <Row gutter={12}>
-                    <Col span={12}>
-                      <Form.Item label="设备" name="device">
-                        <Input placeholder="设备型号或分组" />
-                      </Form.Item>
-                    </Col>
-                    <Col span={12}>
-                      <Form.Item label="深度" name="depth">
-                        <Input placeholder="例如：4cm" />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                  <Form.Item label="方向" name="orientation">
-                    <Input placeholder="例如：longitudinal / transverse" />
-                  </Form.Item>
-                  <Form.Item label="脱敏状态" name="deidStatus">
-                    <Select
-                      options={[
-                        { label: "unknown", value: "unknown" },
-                        { label: "passed", value: "passed" },
-                        { label: "failed", value: "failed" },
-                        { label: "needs_review", value: "needs_review" },
-                      ]}
-                    />
-                  </Form.Item>
-                </>
-              ) : null}
+              ) : (
+                <Alert
+                  type={cvatHealth?.reachable && cvatHealth.authenticated ? "success" : "warning"}
+                  showIcon
+                  message={
+                    cvatHealth?.reachable && cvatHealth.authenticated
+                      ? "CVAT 视频标注可用，本次视频任务将使用 CVAT。"
+                      : "CVAT 当前不可用，本次视频任务将使用兼容的 Label Studio 后端。"
+                  }
+                  description={cvatHealth?.error || "视频任务的患者与肺区信息请在下方逐视频填写。"}
+                />
+              )}
 
               <Button type="primary" size="large" block loading={submitting} onClick={handleSubmit}>
                 上传并创建任务
@@ -404,6 +507,60 @@ export function UploadPage() {
           </Col>
         </Row>
       </Form>
+
+      {isVideo ? (
+        <Card title="逐视频元数据" className="panel-card">
+          <Alert
+            type="warning"
+            showIcon
+            message="请勿填写患者姓名、身份证等真实隐私信息。patient_uid 应为脱敏编号。"
+            style={{ marginBottom: 16 }}
+          />
+          <Form form={batchForm} layout="vertical">
+            <Row gutter={12}>
+              <Col xs={24} md={6}>
+                <Form.Item label="patient_uid" name="patient_uid">
+                  <Input placeholder="Patient_A" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={5}>
+                <Form.Item label="lung_zone" name="lung_zone">
+                  <Input placeholder="R1 / L2" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={5}>
+                <Form.Item label="probe" name="probe">
+                  <Input placeholder="linear" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={5}>
+                <Form.Item label="device" name="device">
+                  <Input placeholder="device group" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={3}>
+                <Form.Item label="操作">
+                  <Space>
+                    <Button onClick={() => applyBatch("selected")}>应用到选中</Button>
+                    <Button onClick={() => applyBatch("all")}>应用到全部</Button>
+                  </Space>
+                </Form.Item>
+              </Col>
+            </Row>
+          </Form>
+          <Table
+            rowKey="key"
+            columns={metadataColumns}
+            dataSource={videoRows}
+            pagination={false}
+            scroll={{ x: 1280 }}
+            rowSelection={{
+              selectedRowKeys: selectedVideoRowKeys,
+              onChange: setSelectedVideoRowKeys,
+            }}
+          />
+        </Card>
+      ) : null}
 
       {imageUploadResult ? (
         <Alert

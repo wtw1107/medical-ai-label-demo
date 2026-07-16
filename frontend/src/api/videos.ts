@@ -5,10 +5,14 @@ import type {
   KeyFrameLabelStudioInitResponse,
   KeyFrameLabelStudioSyncResponse,
   KeyFrameListResponse,
+  CvatHealthResponse,
+  CvatInitResponse,
+  CvatSyncResponse,
   VideoDatasetListResponse,
   VideoDatasetSummary,
   VideoDatasetUploadResponse,
   VideoKeyframeExportResponse,
+  VideoUploadMetadata,
   VideoListResponse,
   VideoReview,
   VideoReviewUpdateRequest,
@@ -17,20 +21,30 @@ import { apiClient } from "./client";
 
 export interface UploadVideoDatasetPayload {
   dataset_name: string;
-  patient_uid: string;
+  patient_uid?: string;
   lung_zone?: string;
   probe?: string;
   device?: string;
   depth?: string;
   orientation?: string;
   deid_status?: string;
+  annotation_backend?: "cvat" | "label_studio";
+  metadata?: VideoUploadMetadata[];
   files: File[];
 }
 
 export async function uploadVideoDataset(payload: UploadVideoDatasetPayload) {
   const formData = new FormData();
   formData.append("dataset_name", payload.dataset_name);
-  formData.append("patient_uid", payload.patient_uid);
+  if (payload.patient_uid) {
+    formData.append("patient_uid", payload.patient_uid);
+  }
+  if (payload.metadata) {
+    formData.append("metadata_json", JSON.stringify(payload.metadata));
+  }
+  if (payload.annotation_backend) {
+    formData.append("annotation_backend", payload.annotation_backend);
+  }
   formData.append("lung_zone", payload.lung_zone || "");
   formData.append("probe", payload.probe || "");
   formData.append("device", payload.device || "");
@@ -87,5 +101,25 @@ export async function syncKeyframeLabelStudioStatus(videoId: string) {
 
 export async function exportBlineKeyframes(datasetId: string) {
   const response = await apiClient.post<VideoKeyframeExportResponse>(`/api/video-datasets/${datasetId}/exports/bline-keyframes`);
+  return response.data;
+}
+
+export async function getCvatHealth() {
+  const response = await apiClient.get<CvatHealthResponse>("/api/integrations/cvat/health");
+  return response.data;
+}
+
+export async function initDatasetCvat(datasetId: string) {
+  const response = await apiClient.post<CvatInitResponse>(`/api/video-datasets/${datasetId}/cvat/init`);
+  return response.data;
+}
+
+export async function syncDatasetCvat(datasetId: string) {
+  const response = await apiClient.post<CvatSyncResponse>(`/api/video-datasets/${datasetId}/cvat/sync`);
+  return response.data;
+}
+
+export async function exportCvatBlineTest(datasetId: string) {
+  const response = await apiClient.post<VideoKeyframeExportResponse>(`/api/video-datasets/${datasetId}/exports/cvat-bline-test`);
   return response.data;
 }

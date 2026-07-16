@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -17,6 +19,10 @@ from app.schemas.video import (
     KeyFrameLabelStudioInitResponse,
     KeyFrameLabelStudioSyncResponse,
     KeyFrameListResponse,
+    CvatAnnotationSummaryResponse,
+    CvatHealthResponse,
+    CvatInitResponse,
+    CvatSyncResponse,
     ReviewSummaryItem,
     SplitSummaryItem,
     VideoDatasetListItemResponse,
@@ -27,7 +33,9 @@ from app.schemas.video import (
     VideoListResponse,
     VideoReviewResponse,
     VideoReviewUpdateRequest,
+    VideoUploadMetadata,
 )
+from app.services.cvat_service import CvatService
 from app.services.video_keyframe_export_service import VideoKeyframeExportService
 from app.services.video_keyframe_label_studio_service import VideoKeyframeLabelStudioService
 from app.services.keyframe_service import KeyFrameService
@@ -39,7 +47,9 @@ router = APIRouter(prefix="/api", tags=["videos"])
 @router.post("/video-datasets/upload", response_model=VideoDatasetUploadResponse)
 def upload_video_dataset(
     dataset_name: str = Form(...),
-    patient_uid: str = Form(...),
+    patient_uid: str | None = Form(default=None),
+    metadata_json: str | None = Form(default=None),
+    annotation_backend: str | None = Form(default=None),
     lung_zone: str | None = Form(default=None),
     probe: str | None = Form(default=None),
     device: str | None = Form(default=None),
@@ -55,10 +65,29 @@ def upload_video_dataset(
     db: Session = Depends(get_db),
 ) -> VideoDatasetUploadResponse:
     service = VideoStorageService(get_settings())
+    normalized_backend = (annotation_backend or "label_studio").strip()
+    if normalized_backend == "cvat":
+        cvat_health = CvatService(get_settings()).health()
+        if not cvat_health.reachable or not cvat_health.authenticated:
+            raise HTTPException(
+                status_code=503,
+                detail=f"CVAT is not available for new video tasks: {cvat_health.error}",
+            )
+    video_metadata = None
+    if metadata_json:
+        try:
+            raw_items = json.loads(metadata_json)
+            if not isinstance(raw_items, list):
+                raise ValueError("metadata_json must be a JSON list.")
+            video_metadata = [VideoUploadMetadata.model_validate(item) for item in raw_items]
+        except (json.JSONDecodeError, ValidationError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid metadata_json: {exc}") from exc
     return service.upload_video_dataset(
         db=db,
         dataset_name=dataset_name,
         patient_uid=patient_uid,
+        video_metadata=video_metadata,
+        annotation_backend=normalized_backend,
         files=files,
         lung_zone=lung_zone,
         probe=probe,
@@ -168,6 +197,9 @@ def get_video_dataset_summary(
         dataset_id=dataset.id,
         dataset_name=dataset.name,
         data_type=dataset.data_type,
+        annotation_backend=dataset.annotation_backend,
+        cvat_project_id=dataset.cvat_project_id,
+        cvat_project_url=dataset.cvat_project_url,
         video_count=len(videos),
         patient_count=len(patients),
         keyframe_count=keyframe_count,
@@ -198,6 +230,47 @@ def list_video_dataset_videos(
         videos=[service.serialize_video_item(video) for video in videos],
         total=len(videos),
     )
+
+
+@router.get("/integrations/cvat/health", response_model=CvatHealthResponse)
+def get_cvat_health() -> CvatHealthResponse:
+    service = CvatService(get_settings())
+    return service.health()
+
+
+@router.post("/video-datasets/{dataset_id}/cvat/init", response_model=CvatInitResponse)
+def init_video_dataset_cvat(
+    dataset_id: str,
+    db: Session = Depends(get_db),
+) -> CvatInitResponse:
+    service = CvatService(get_settings())
+    return service.init_dataset(db=db, dataset_id=dataset_id)
+
+
+@router.post("/video-datasets/{dataset_id}/cvat/sync", response_model=CvatSyncResponse)
+def sync_video_dataset_cvat(
+    dataset_id: str,
+    db: Session = Depends(get_db),
+) -> CvatSyncResponse:
+    service = CvatService(get_settings())
+    return service.sync_dataset(db=db, dataset_id=dataset_id)
+
+
+@router.get("/videos/{video_id}/cvat/annotations-summary", response_model=CvatAnnotationSummaryResponse)
+def get_video_cvat_annotations_summary(
+    video_id: str,
+    db: Session = Depends(get_db),
+) -> CvatAnnotationSummaryResponse:
+    service = CvatService(get_settings())
+    return service.get_annotations_summary(db=db, video_id=video_id)
+
+
+@router.post("/video-datasets/{dataset_id}/exports/cvat-bline-test", response_model=VideoKeyframeExportResponse)
+def export_cvat_bline_test(
+    dataset_id: str,
+) -> VideoKeyframeExportResponse:
+    service = CvatService(get_settings())
+    return service.export_bline_test(dataset_id=dataset_id)
 
 
 @router.patch("/videos/{video_id}/review", response_model=VideoReviewResponse)
@@ -314,5 +387,11 @@ def download_video_export(
     export_id: str,
 ) -> FileResponse:
     service = VideoKeyframeExportService(get_settings())
-    path = service.get_download_path(export_id)
+    try:
+        path = service.get_download_path(export_id)
+    except HTTPException:
+        settings = get_settings()
+        path = settings.ensure_data_root() / "exports" / "cvat_bline" / export_id / f"{export_id}.zip"
+        if not path.exists():
+            raise
     return FileResponse(path, media_type="application/zip", filename=path.name)

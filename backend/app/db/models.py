@@ -57,6 +57,9 @@ class Dataset(Base, TimestampMixin):
     root_dir: Mapped[str] = mapped_column(String(512), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default=DatasetStatus.UPLOADED.value, nullable=False)
     created_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    annotation_backend: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    cvat_project_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    cvat_project_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     image_items: Mapped[list[ImageItem]] = relationship(
         back_populates="dataset",
@@ -166,6 +169,12 @@ class VideoItem(Base, TimestampMixin):
         nullable=False,
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cvat_task_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    cvat_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    cvat_task_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    cvat_job_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    cvat_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    cvat_annotation_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     dataset: Mapped[Dataset] = relationship(back_populates="video_items")
     patient: Mapped[Patient | None] = relationship(back_populates="video_items")

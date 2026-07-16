@@ -25,6 +25,7 @@ from app.schemas.video import (
     PatientRead,
     VideoDatasetUploadResponse,
     VideoItemRead,
+    VideoUploadMetadata,
     VideoUploadWarning,
 )
 from app.utils.file_utils import build_unique_filename, normalize_filename, safe_join
@@ -37,6 +38,32 @@ def ensure_video_schema() -> None:
     with engine.begin() as connection:
         if connection.dialect.name != "sqlite":
             return
+        dataset_columns = connection.execute(text("PRAGMA table_info(datasets)")).mappings().all()
+        dataset_column_names = {column["name"] for column in dataset_columns}
+        if dataset_columns:
+            if "annotation_backend" not in dataset_column_names:
+                connection.execute(text("ALTER TABLE datasets ADD COLUMN annotation_backend VARCHAR(32)"))
+            if "cvat_project_id" not in dataset_column_names:
+                connection.execute(text("ALTER TABLE datasets ADD COLUMN cvat_project_id INTEGER"))
+            if "cvat_project_url" not in dataset_column_names:
+                connection.execute(text("ALTER TABLE datasets ADD COLUMN cvat_project_url VARCHAR(512)"))
+
+        video_columns = connection.execute(text("PRAGMA table_info(video_items)")).mappings().all()
+        video_column_names = {column["name"] for column in video_columns}
+        if video_columns:
+            if "cvat_task_id" not in video_column_names:
+                connection.execute(text("ALTER TABLE video_items ADD COLUMN cvat_task_id INTEGER"))
+            if "cvat_job_id" not in video_column_names:
+                connection.execute(text("ALTER TABLE video_items ADD COLUMN cvat_job_id INTEGER"))
+            if "cvat_task_url" not in video_column_names:
+                connection.execute(text("ALTER TABLE video_items ADD COLUMN cvat_task_url VARCHAR(512)"))
+            if "cvat_job_url" not in video_column_names:
+                connection.execute(text("ALTER TABLE video_items ADD COLUMN cvat_job_url VARCHAR(512)"))
+            if "cvat_status" not in video_column_names:
+                connection.execute(text("ALTER TABLE video_items ADD COLUMN cvat_status VARCHAR(64)"))
+            if "cvat_annotation_updated_at" not in video_column_names:
+                connection.execute(text("ALTER TABLE video_items ADD COLUMN cvat_annotation_updated_at DATETIME"))
+
         columns = connection.execute(text("PRAGMA table_info(key_frames)")).mappings().all()
         if not columns:
             return
@@ -204,9 +231,70 @@ def _serialize_video_item(video: VideoItem) -> VideoItemRead:
         reviewed_by=latest_review.reviewed_by if latest_review is not None else None,
         reviewed_at=latest_review.reviewed_at if latest_review is not None else None,
         keyframe_count=len(video.keyframes),
+        cvat_task_id=video.cvat_task_id,
+        cvat_job_id=video.cvat_job_id,
+        cvat_task_url=video.cvat_task_url,
+        cvat_job_url=video.cvat_job_url,
+        cvat_status=video.cvat_status,
+        cvat_annotation_updated_at=video.cvat_annotation_updated_at,
         created_at=video.created_at,
         updated_at=video.updated_at,
     )
+
+
+def _clean_optional(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
+def _build_legacy_metadata(
+    *,
+    files: list[UploadFile],
+    patient_uid: str | None,
+    lung_zone: str | None,
+    probe: str | None,
+    device: str | None,
+    depth: str | None,
+    orientation: str | None,
+    deid_status: str | None,
+    site: str | None,
+    device_group: str | None,
+) -> list[VideoUploadMetadata]:
+    if not patient_uid or not patient_uid.strip():
+        raise HTTPException(status_code=400, detail="patient_uid is required.")
+    return [
+        VideoUploadMetadata(
+            filename=normalize_filename(upload_file.filename or "upload"),
+            patient_uid=patient_uid.strip(),
+            lung_zone=(lung_zone or "").strip(),
+            probe=_clean_optional(probe),
+            device=_clean_optional(device),
+            depth=_clean_optional(depth),
+            orientation=_clean_optional(orientation),
+            deid_status=(deid_status or DeidentificationStatus.UNKNOWN.value).strip(),
+            site=_clean_optional(site),
+            device_group=_clean_optional(device_group),
+        )
+        for upload_file in files
+    ]
+
+
+def _build_metadata_lookup(metadata_items: list[VideoUploadMetadata]) -> dict[str, VideoUploadMetadata]:
+    lookup: dict[str, VideoUploadMetadata] = {}
+    duplicate_filenames: set[str] = set()
+    for item in metadata_items:
+        filename = normalize_filename(item.filename)
+        if filename in lookup:
+            duplicate_filenames.add(filename)
+        lookup[filename] = item
+    if duplicate_filenames:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Duplicate metadata filenames are not supported: {', '.join(sorted(duplicate_filenames))}",
+        )
+    return lookup
 
 
 class VideoStorageService:
@@ -218,8 +306,10 @@ class VideoStorageService:
         *,
         db: Session,
         dataset_name: str,
-        patient_uid: str,
         files: list[UploadFile],
+        patient_uid: str | None = None,
+        video_metadata: list[VideoUploadMetadata] | None = None,
+        annotation_backend: str | None = None,
         lung_zone: str | None = None,
         probe: str | None = None,
         device: str | None = None,
@@ -231,8 +321,22 @@ class VideoStorageService:
     ) -> VideoDatasetUploadResponse:
         if not files:
             raise HTTPException(status_code=400, detail="At least one video file is required.")
-        if not patient_uid.strip():
-            raise HTTPException(status_code=400, detail="patient_uid is required.")
+        normalized_backend = (annotation_backend or "label_studio").strip()
+        if normalized_backend not in {"cvat", "label_studio"}:
+            raise HTTPException(status_code=400, detail="annotation_backend must be cvat or label_studio.")
+        metadata_items = video_metadata or _build_legacy_metadata(
+            files=files,
+            patient_uid=patient_uid,
+            lung_zone=lung_zone,
+            probe=probe,
+            device=device,
+            depth=depth,
+            orientation=orientation,
+            deid_status=deid_status,
+            site=site,
+            device_group=device_group,
+        )
+        metadata_lookup = _build_metadata_lookup(metadata_items)
 
         dataset = Dataset(
             id=uuid4().hex,
@@ -243,6 +347,7 @@ class VideoStorageService:
             root_dir="",
             status=DatasetStatus.UPLOADED.value,
             created_by=self.settings.default_user_id,
+            annotation_backend=normalized_backend,
         )
 
         dataset_root = self.settings.ensure_data_root() / "video_datasets" / dataset.id
@@ -261,6 +366,13 @@ class VideoStorageService:
                     VideoUploadWarning(filename=filename, message="Skipped unsupported video file.")
                 )
                 continue
+            metadata = metadata_lookup.get(filename)
+            if metadata is None:
+                raise HTTPException(status_code=400, detail=f"Missing metadata for video file: {filename}")
+            if not metadata.patient_uid.strip():
+                raise HTTPException(status_code=400, detail=f"patient_uid is required for video file: {filename}")
+            if not metadata.lung_zone.strip():
+                raise HTTPException(status_code=400, detail=f"lung_zone is required for video file: {filename}")
 
             try:
                 stored_videos.append(
@@ -283,29 +395,32 @@ class VideoStorageService:
             self._cleanup_empty_dataset_dir(dataset_root)
             raise HTTPException(status_code=400, detail="No valid video files were found in the upload.")
 
-        patient = Patient(
-            dataset_id=dataset.id,
-            patient_uid=patient_uid.strip(),
-            split=DatasetSplit.UNASSIGNED.value,
-            site=site.strip() if site else None,
-            device_group=device_group.strip() if device_group else None,
-        )
-
         try:
             dataset.root_dir = str(dataset_root.resolve())
             dataset.status = DatasetStatus.READY.value
             db.add(dataset)
             db.flush()
 
-            patient.dataset_id = dataset.id
-            db.add(patient)
+            patients_by_uid: dict[str, Patient] = {}
+            for metadata in metadata_items:
+                patient_key = metadata.patient_uid.strip()
+                if patient_key in patients_by_uid:
+                    continue
+                patient = Patient(
+                    dataset_id=dataset.id,
+                    patient_uid=patient_key,
+                    split=DatasetSplit.UNASSIGNED.value,
+                    site=_clean_optional(metadata.site),
+                    device_group=_clean_optional(metadata.device_group),
+                )
+                db.add(patient)
+                patients_by_uid[patient_key] = patient
             db.flush()
 
             video_items: list[VideoItem] = []
-            normalized_deid_status = (
-                deid_status.strip() if deid_status else DeidentificationStatus.UNKNOWN.value
-            )
             for stored_video in stored_videos:
+                metadata = metadata_lookup[stored_video.filename]
+                patient = patients_by_uid[metadata.patient_uid.strip()]
                 video_item = VideoItem(
                     dataset_id=dataset.id,
                     patient_id=patient.id,
@@ -319,13 +434,14 @@ class VideoStorageService:
                     height=stored_video.height,
                     preview_image_path=stored_video.preview_image_path,
                     preview_image_url=stored_video.preview_image_url,
-                    lung_zone=lung_zone.strip() if lung_zone else None,
-                    probe=probe.strip() if probe else None,
-                    orientation=orientation.strip() if orientation else None,
-                    device=device.strip() if device else None,
-                    depth=depth.strip() if depth else None,
-                    deid_status=normalized_deid_status,
+                    lung_zone=metadata.lung_zone.strip(),
+                    probe=_clean_optional(metadata.probe),
+                    orientation=_clean_optional(metadata.orientation),
+                    device=_clean_optional(metadata.device),
+                    depth=_clean_optional(metadata.depth),
+                    deid_status=(metadata.deid_status or DeidentificationStatus.UNKNOWN.value).strip(),
                     status=VideoItemStatus.READY.value,
+                    cvat_status="not_initialized",
                 )
                 db.add(video_item)
                 video_items.append(video_item)
@@ -342,7 +458,7 @@ class VideoStorageService:
             dataset_id=dataset.id,
             dataset_name=dataset.name,
             video_count=len(video_items),
-            patient_count=1,
+            patient_count=len(patients_by_uid),
             videos=[_serialize_video_item(video) for video in video_items],
             warnings=warnings,
         )

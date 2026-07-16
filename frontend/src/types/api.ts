@@ -292,6 +292,12 @@ export interface VideoItem {
   reviewed_by: string | null;
   reviewed_at: string | null;
   keyframe_count: number;
+  cvat_task_id: number | null;
+  cvat_job_id: number | null;
+  cvat_task_url: string | null;
+  cvat_job_url: string | null;
+  cvat_status: string | null;
+  cvat_annotation_updated_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -320,6 +326,9 @@ export interface VideoDatasetSummary {
   dataset_id: string;
   dataset_name: string;
   data_type: string;
+  annotation_backend: string | null;
+  cvat_project_id: number | null;
+  cvat_project_url: string | null;
   video_count: number;
   patient_count: number;
   keyframe_count: number;
@@ -442,4 +451,74 @@ export interface VideoKeyframeExportResponse {
   skipped_count: number;
   file_path: string;
   download_url: string;
+}
+
+export interface VideoUploadMetadata {
+  filename: string;
+  patient_uid: string;
+  lung_zone: string;
+  probe?: string | null;
+  device?: string | null;
+  depth?: string | null;
+  orientation?: string | null;
+  deid_status?: string | null;
+}
+
+export interface CvatHealthResponse {
+  configured: boolean;
+  reachable: boolean;
+  authenticated: boolean;
+  server_version: string | null;
+  review_supported: boolean | null;
+  issue_supported: boolean | null;
+  consensus_supported: boolean | null;
+  error: string | null;
+}
+
+export interface CvatVideoMappingItem {
+  video_id: string;
+  cvat_task_id: number | null;
+  cvat_job_id: number | null;
+  cvat_task_url: string | null;
+  cvat_job_url: string | null;
+  status: string | null;
+  keyframe_tag_count: number;
+  positive_frame_count: number;
+  negative_frame_count: number;
+  uncertain_frame_count: number;
+  polygon_count: number;
+  issue_count: number;
+  error: string | null;
+}
+
+export interface CvatInitResponse {
+  dataset_id: string;
+  cvat_project_id: number | null;
+  cvat_project_url: string | null;
+  created_task_count: number;
+  reused_task_count: number;
+  videos: CvatVideoMappingItem[];
+  error: string | null;
+}
+
+export interface CvatSyncResponse {
+  dataset_id: string;
+  total_videos: number;
+  counts: Record<string, number>;
+  issues_count: number;
+  videos: CvatVideoMappingItem[];
+  error: string | null;
+}
+
+export interface CvatAnnotationSummaryResponse {
+  video_id: string;
+  frame_count: number | null;
+  keyframe_tag_count: number;
+  positive_frame_count: number;
+  negative_frame_count: number;
+  uncertain_frame_count: number;
+  polygon_count: number;
+  issue_count: number;
+  review_status: string | null;
+  error: string | null;
 }

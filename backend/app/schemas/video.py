@@ -22,6 +22,19 @@ class VideoUploadWarning(BaseModel):
     message: str
 
 
+class VideoUploadMetadata(BaseModel):
+    filename: str
+    patient_uid: str
+    lung_zone: str
+    probe: str | None = None
+    device: str | None = None
+    depth: str | None = None
+    orientation: str | None = None
+    deid_status: str = DeidentificationStatus.UNKNOWN.value
+    site: str | None = None
+    device_group: str | None = None
+
+
 class PatientRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -66,6 +79,12 @@ class VideoItemRead(BaseModel):
     reviewed_by: str | None = None
     reviewed_at: datetime | None = None
     keyframe_count: int = 0
+    cvat_task_id: int | None = None
+    cvat_job_id: int | None = None
+    cvat_task_url: str | None = None
+    cvat_job_url: str | None = None
+    cvat_status: str | None = None
+    cvat_annotation_updated_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -94,6 +113,9 @@ class VideoDatasetSummaryResponse(BaseModel):
     dataset_id: str
     dataset_name: str
     data_type: str
+    annotation_backend: str | None = None
+    cvat_project_id: int | None = None
+    cvat_project_url: str | None = None
     video_count: int
     patient_count: int
     keyframe_count: int
@@ -218,3 +240,62 @@ class VideoKeyframeExportResponse(BaseModel):
     skipped_count: int
     file_path: str
     download_url: str
+
+
+class CvatHealthResponse(BaseModel):
+    configured: bool
+    reachable: bool
+    authenticated: bool
+    server_version: str | None = None
+    review_supported: bool | None = None
+    issue_supported: bool | None = None
+    consensus_supported: bool | None = None
+    error: str | None = None
+
+
+class CvatVideoMappingItem(BaseModel):
+    video_id: str
+    cvat_task_id: int | None = None
+    cvat_job_id: int | None = None
+    cvat_task_url: str | None = None
+    cvat_job_url: str | None = None
+    status: str | None = None
+    keyframe_tag_count: int = 0
+    positive_frame_count: int = 0
+    negative_frame_count: int = 0
+    uncertain_frame_count: int = 0
+    polygon_count: int = 0
+    issue_count: int = 0
+    error: str | None = None
+
+
+class CvatInitResponse(BaseModel):
+    dataset_id: str
+    cvat_project_id: int | None = None
+    cvat_project_url: str | None = None
+    created_task_count: int
+    reused_task_count: int
+    videos: list[CvatVideoMappingItem]
+    error: str | None = None
+
+
+class CvatSyncResponse(BaseModel):
+    dataset_id: str
+    total_videos: int
+    counts: dict[str, int]
+    issues_count: int
+    videos: list[CvatVideoMappingItem]
+    error: str | None = None
+
+
+class CvatAnnotationSummaryResponse(BaseModel):
+    video_id: str
+    frame_count: int | None = None
+    keyframe_tag_count: int = 0
+    positive_frame_count: int = 0
+    negative_frame_count: int = 0
+    uncertain_frame_count: int = 0
+    polygon_count: int = 0
+    issue_count: int = 0
+    review_status: str | None = None
+    error: str | None = None
