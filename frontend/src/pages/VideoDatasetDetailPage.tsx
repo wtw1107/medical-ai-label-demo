@@ -120,13 +120,21 @@ export function VideoDatasetDetailPage() {
   const loadData = async (currentDatasetId: string) => {
     setLoading(true);
     try {
-      const [summaryResponse, videosResponse, healthResponse] = await Promise.all([
+      const [summaryResponse, videosResponse] = await Promise.all([
         getVideoDataset(currentDatasetId),
         listDatasetVideos(currentDatasetId),
-        getCvatHealth(),
       ]);
       setSummary(summaryResponse);
       setVideos(videosResponse.videos);
+      const shouldLoadCvat = summaryResponse.annotation_backend === "cvat";
+      if (!shouldLoadCvat) {
+        setCvatHealth(null);
+        setCvatSummaries({});
+        setCvatAccess({});
+        return;
+      }
+
+      const healthResponse = await getCvatHealth();
       setCvatHealth(healthResponse);
 
       const initializedVideos = videosResponse.videos.filter((video) => video.cvat_task_id);
@@ -168,7 +176,8 @@ export function VideoDatasetDetailPage() {
   }, [datasetId]);
 
   const isLegacyLabelStudio = summary?.annotation_backend === "label_studio";
-  const isCvatFlow = !isLegacyLabelStudio;
+  const isCvatFlow = summary?.annotation_backend === "cvat";
+  const isNativeFlow = !loading && !isLegacyLabelStudio && !isCvatFlow;
   const canUseCvat = Boolean(cvatHealth?.reachable && cvatHealth.authenticated);
   const initializedCount = videos.filter((video) => cvatAccess[video.id]?.access_ready).length;
   const uninitializedCount = Math.max(videos.length - initializedCount, 0);
@@ -391,6 +400,62 @@ export function VideoDatasetDetailPage() {
     [navigate],
   );
 
+  const nativeColumns = useMemo<ColumnsType<VideoItem>>(
+    () => [
+      {
+        title: "视频",
+        key: "video",
+        render: (_, record) => (
+          <Space size={12}>
+            {record.preview_image_url ? (
+              <Image src={record.preview_image_url} alt={record.filename} width={84} height={56} style={{ objectFit: "cover", borderRadius: 8 }} preview={false} />
+            ) : null}
+            <Space direction="vertical" size={0}>
+              <Typography.Text strong>{record.filename}</Typography.Text>
+              <Typography.Text type="secondary">{record.patient_uid || "未关联患者"}</Typography.Text>
+              <Typography.Text type="secondary">{record.lung_zone || "-"}</Typography.Text>
+            </Space>
+          </Space>
+        ),
+      },
+      {
+        title: "基础信息",
+        key: "metrics",
+        render: (_, record) => (
+          <Space direction="vertical" size={0}>
+            <Typography.Text>{`${formatNumber(record.duration_sec, 1)}s / ${formatNumber(record.fps, 1)} fps`}</Typography.Text>
+            <Typography.Text type="secondary">{`${record.frame_count ?? "-"} 帧 / ${record.width ?? "-"}x${record.height ?? "-"}`}</Typography.Text>
+          </Space>
+        ),
+      },
+      {
+        title: "标注入口",
+        key: "native",
+        render: () => <Tag color="blue">平台原生工作台</Tag>,
+      },
+      {
+        title: "平台状态",
+        dataIndex: "status",
+        key: "status",
+        render: (value: string) => <StatusTag status={value} />,
+      },
+      {
+        title: "操作",
+        key: "actions",
+        fixed: "right",
+        render: (_, record) => (
+          <Space>
+            <Button onClick={() => setPreviewVideo(record)}>预览原视频</Button>
+            <Button type="primary" onClick={() => navigate(`/video-datasets/${record.dataset_id}/videos/${record.id}/native-workbench`)}>
+              进入原生标注
+            </Button>
+          </Space>
+        ),
+      },
+    ],
+    [navigate],
+  );
+
   const summaryCard = (
     <Card title="任务概览" className="panel-card" loading={loading}>
       {summary ? (
@@ -398,7 +463,7 @@ export function VideoDatasetDetailPage() {
           <Descriptions.Item label="dataset_id">{summary.dataset_id}</Descriptions.Item>
           <Descriptions.Item label="data_type">{summary.data_type}</Descriptions.Item>
           <Descriptions.Item label="annotation_backend">{summary.annotation_backend || "未设置"}</Descriptions.Item>
-          <Descriptions.Item label="CVAT Project">{summary.cvat_project_id || "-"}</Descriptions.Item>
+          {isCvatFlow ? <Descriptions.Item label="CVAT Project">{summary.cvat_project_id || "-"}</Descriptions.Item> : null}
           <Descriptions.Item label="任务类型">肺超声 B-line 视频分割</Descriptions.Item>
           <Descriptions.Item label="视频数">{summary.video_count}</Descriptions.Item>
           <Descriptions.Item label="患者数">{summary.patient_count}</Descriptions.Item>
@@ -451,6 +516,21 @@ export function VideoDatasetDetailPage() {
     </Card>
   );
 
+  const nativeVideoTable = (
+    <Card title="平台原生视频标注" className="panel-card">
+      <Space direction="vertical" size={16} style={{ width: "100%" }}>
+        <Alert
+          type="success"
+          showIcon
+          message="新视频任务将进入平台原生工作台，不再创建或跳转 CVAT。"
+          description="第一阶段 MVP 支持短视频加载、目标创建、正点提示、Mock Mask 叠加和刷新后的本地最小会话恢复。"
+        />
+        <Table rowKey="id" loading={loading} columns={nativeColumns} dataSource={videos} pagination={{ pageSize: 8, showSizeChanger: false }} scroll={{ x: 980 }} />
+        {!loading && videos.length === 0 ? <Empty description="暂无视频数据" /> : null}
+      </Space>
+    </Card>
+  );
+
   const statusCard = (
     <Card title="标注与复核状态" className="panel-card">
       <Space direction="vertical" size={16} style={{ width: "100%" }}>
@@ -496,7 +576,7 @@ export function VideoDatasetDetailPage() {
           type="warning"
           showIcon
           message="这是旧版 Label Studio 关键帧视频流程。"
-          description="该流程保留兼容，不会自动进入 CVAT，也不会显示 CVAT 初始化、同步或导出按钮。新视频任务请使用 annotation_backend=cvat。"
+          description="该流程保留兼容，不会自动进入 CVAT，也不会显示 CVAT 初始化、同步或导出按钮。新视频任务请使用平台原生视频工作台。"
         />
         <Table rowKey="id" loading={loading} columns={legacyColumns} dataSource={videos} pagination={{ pageSize: 8, showSizeChanger: false }} />
       </Space>
@@ -507,17 +587,23 @@ export function VideoDatasetDetailPage() {
     return <Empty description="未找到数据集 ID" />;
   }
 
-  const tabItems = isCvatFlow
-    ? [
-        { key: "overview", label: "任务概览", children: summaryCard },
-        { key: "cvat-video", label: "CVAT 视频标注", children: videoTable },
-        { key: "cvat-status", label: "标注与复核状态", children: statusCard },
-        { key: "export", label: "导出结果", children: exportCard },
-      ]
-    : [
-        { key: "overview", label: "任务概览", children: summaryCard },
-        { key: "legacy-label-studio", label: "旧版 Label Studio 视频流程", children: legacyFlowCard },
-      ];
+  let tabItems = [
+    { key: "overview", label: "任务概览", children: summaryCard },
+    { key: "legacy-label-studio", label: "旧版 Label Studio 视频流程", children: legacyFlowCard },
+  ];
+  if (isNativeFlow) {
+    tabItems = [
+      { key: "overview", label: "任务概览", children: summaryCard },
+      { key: "native-video", label: "原生视频标注", children: nativeVideoTable },
+    ];
+  } else if (isCvatFlow) {
+    tabItems = [
+      { key: "overview", label: "任务概览", children: summaryCard },
+      { key: "cvat-video", label: "CVAT 历史兼容", children: videoTable },
+      { key: "cvat-status", label: "标注与复核状态", children: statusCard },
+      { key: "export", label: "导出结果", children: exportCard },
+    ];
+  }
 
   return (
     <Space direction="vertical" size={24} style={{ width: "100%" }}>
@@ -527,7 +613,7 @@ export function VideoDatasetDetailPage() {
             {summary?.dataset_name || "视频任务详情"}
           </Typography.Title>
           <Typography.Paragraph className="hero-description">
-            当前视频业务流程：上传视频、查看完整视频、在 CVAT 选择关键帧并标注 B-line、同步标注与复核状态、导出 0/1 mask 数据集。
+            当前视频业务流程：上传视频、进入平台原生工作台、创建目标、使用点提示生成 Mask，并在后续阶段接入 MedSAM2 推理与统一导出。
           </Typography.Paragraph>
           {isCvatFlow ? (
             <Alert

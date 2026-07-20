@@ -10,7 +10,7 @@ import { listVideoDatasets } from "../api/videos";
 import type { AnnotationTaskListItem, TaskType, VideoDatasetListItem } from "../types/api";
 
 type DataTypeFilter = "all" | "image" | "video";
-type ToolFilter = "all" | "label_studio" | "cvat" | "label_studio_legacy";
+type ToolFilter = "all" | "label_studio" | "native_video" | "cvat" | "label_studio_legacy";
 type StatusGroup = "all" | "pending" | "in_progress" | "review" | "completed" | "problem" | "unavailable";
 type SortMode = "updated_desc" | "updated_asc" | "created_desc" | "name_asc";
 
@@ -21,7 +21,7 @@ interface UnifiedTaskItem {
   taskType: TaskType;
   datasetName: string;
   itemCount: number;
-  annotationBackend: "label_studio" | "cvat";
+  annotationBackend: "label_studio" | "native_video" | "cvat";
   toolLabel: string;
   status: string;
   statusLabel: string;
@@ -93,22 +93,28 @@ function normalizeVideoStatus(record: VideoDatasetListItem): { label: string; gr
   if (record.annotation_backend === "label_studio") {
     return { label: "旧版流程", group: "in_progress" };
   }
+  if (record.annotation_backend === "cvat") {
+    if (record.video_count > 0 && record.initialized_video_count === 0) {
+      return { label: "历史 CVAT 待初始化", group: "pending" };
+    }
+    if (record.unresolved_issue_count > 0) {
+      return { label: "存在问题", group: "problem" };
+    }
+    if (record.cvat_status_summary.validation || record.cvat_status_summary.review) {
+      return { label: "待复核", group: "review" };
+    }
+    if (record.cvat_status_summary.completed || record.cvat_status_summary.done || record.cvat_status_summary.finished) {
+      return { label: "已完成", group: "completed" };
+    }
+    if (record.initialized_video_count > 0) {
+      return { label: "标注中", group: "in_progress" };
+    }
+    return { label: "待处理", group: "pending" };
+  }
   if (record.video_count > 0 && record.initialized_video_count === 0) {
-    return { label: "待创建 CVAT 任务", group: "pending" };
+    return { label: "原生待标注", group: "pending" };
   }
-  if (record.unresolved_issue_count > 0) {
-    return { label: "存在问题", group: "problem" };
-  }
-  if (record.cvat_status_summary.validation || record.cvat_status_summary.review) {
-    return { label: "待复核", group: "review" };
-  }
-  if (record.cvat_status_summary.completed || record.cvat_status_summary.done || record.cvat_status_summary.finished) {
-    return { label: "已完成", group: "completed" };
-  }
-  if (record.initialized_video_count > 0) {
-    return { label: "标注中", group: "in_progress" };
-  }
-  return { label: "待处理", group: "pending" };
+  return { label: "原生标注中", group: "in_progress" };
 }
 
 function normalizeImageTask(record: AnnotationTaskListItem): UnifiedTaskItem {
@@ -134,6 +140,7 @@ function normalizeImageTask(record: AnnotationTaskListItem): UnifiedTaskItem {
 function normalizeVideoTask(record: VideoDatasetListItem): UnifiedTaskItem {
   const status = normalizeVideoStatus(record);
   const legacy = record.annotation_backend === "label_studio";
+  const cvat = record.annotation_backend === "cvat";
   return {
     id: record.dataset_id,
     name: record.dataset_name,
@@ -141,8 +148,8 @@ function normalizeVideoTask(record: VideoDatasetListItem): UnifiedTaskItem {
     taskType: record.task_type,
     datasetName: record.dataset_name,
     itemCount: record.video_count,
-    annotationBackend: legacy ? "label_studio" : "cvat",
-    toolLabel: legacy ? "Label Studio 旧版" : "CVAT",
+    annotationBackend: legacy ? "label_studio" : cvat ? "cvat" : "native_video",
+    toolLabel: legacy ? "Label Studio 旧版" : cvat ? "CVAT 历史兼容" : "原生视频工作台",
     status: JSON.stringify(record.cvat_status_summary || {}),
     statusLabel: status.label,
     statusGroup: status.group,
@@ -355,7 +362,7 @@ export function TaskListPage() {
             任务列表
           </Typography.Title>
           <Typography.Paragraph className="hero-description">
-            图片任务使用 Label Studio 完成标注；视频任务使用 CVAT 完成完整视频浏览、关键帧标记、B-line 区域标注与复核。
+            图片任务使用 Label Studio 完成标注；新视频任务使用平台原生视频工作台，历史 CVAT 视频任务保留兼容入口。
           </Typography.Paragraph>
           <Space wrap>
             <Typography.Text>{loading ? "任务总数：加载中" : `任务总数：${totalCount}`}</Typography.Text>
@@ -438,7 +445,8 @@ export function TaskListPage() {
               options={[
                 { label: "全部工具", value: "all" },
                 { label: "Label Studio", value: "label_studio" },
-                { label: "CVAT", value: "cvat" },
+                { label: "原生视频工作台", value: "native_video" },
+                { label: "CVAT 历史兼容", value: "cvat" },
                 { label: "Label Studio 旧版", value: "label_studio_legacy" },
               ]}
               onChange={(value) => {

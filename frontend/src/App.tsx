@@ -6,6 +6,7 @@ import { TaskListPage } from "./pages/TaskListPage";
 import { TaskDetailPage } from "./pages/TaskDetailPage";
 import { UploadPage } from "./pages/UploadPage";
 import { VideoDatasetDetailPage } from "./pages/VideoDatasetDetailPage";
+import { NativeVideoWorkbenchPage } from "./pages/NativeVideoWorkbenchPage";
 import { VideoReviewPage } from "./pages/VideoReviewPage";
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
         <Route path="/video-datasets/new" element={<Navigate to="/" replace />} />
         <Route path="/video-datasets/:datasetId" element={<VideoDatasetDetailPage />} />
+        <Route path="/video-datasets/:datasetId/videos/:videoId/native-workbench" element={<NativeVideoWorkbenchPage />} />
         <Route path="/video-datasets/:datasetId/videos/:videoId" element={<VideoReviewPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -66,13 +66,13 @@ def upload_video_dataset(
     db: Session = Depends(get_db),
 ) -> VideoDatasetUploadResponse:
     service = VideoStorageService(get_settings())
-    normalized_backend = (annotation_backend or "label_studio").strip()
+    normalized_backend = (annotation_backend or "native").strip()
     if normalized_backend == "cvat":
         cvat_health = CvatService(get_settings()).health()
         if not cvat_health.reachable or not cvat_health.authenticated:
             raise HTTPException(
                 status_code=503,
-                detail=f"CVAT is not available for new video tasks: {cvat_health.error}",
+                detail=f"CVAT is only available for legacy video tasks and is not ready: {cvat_health.error}",
             )
     video_metadata = None
     if metadata_json:

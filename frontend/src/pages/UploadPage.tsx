@@ -27,8 +27,8 @@ import { useNavigate } from "react-router-dom";
 
 import { uploadDataset } from "../api/datasets";
 import { createTask } from "../api/tasks";
-import { getCvatHealth, uploadVideoDataset } from "../api/videos";
-import type { CvatHealthResponse, DatasetUploadResponse, TaskType, VideoDatasetUploadResponse, VideoUploadMetadata } from "../types/api";
+import { uploadVideoDataset } from "../api/videos";
+import type { DatasetUploadResponse, TaskType, VideoDatasetUploadResponse, VideoUploadMetadata } from "../types/api";
 
 type DetectedDataType = "none" | "image" | "video" | "mixed" | "unknown";
 type ImageTaskType = "bbox" | "polygon" | "bbox_polygon";
@@ -118,7 +118,6 @@ export function UploadPage() {
   const [selectedVideoRowKeys, setSelectedVideoRowKeys] = useState<React.Key[]>([]);
   const [imageUploadResult, setImageUploadResult] = useState<DatasetUploadResponse | null>(null);
   const [videoUploadResult, setVideoUploadResult] = useState<VideoDatasetUploadResponse | null>(null);
-  const [cvatHealth, setCvatHealth] = useState<CvatHealthResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const detectedType = useMemo(() => detectDataType(fileList), [fileList]);
@@ -151,15 +150,6 @@ export function UploadPage() {
       });
     }
   }, [datasetName, detectedType, fileList, form]);
-
-  useEffect(() => {
-    if (detectedType !== "video") {
-      return;
-    }
-    void getCvatHealth()
-      .then(setCvatHealth)
-      .catch(() => setCvatHealth(null));
-  }, [detectedType]);
 
   const updateVideoRow = (key: string, patch: Partial<VideoMetadataRow>) => {
     setVideoRows((rows) => rows.map((row) => (row.key === key ? { ...row, ...patch } : row)));
@@ -232,7 +222,7 @@ export function UploadPage() {
         }
         const result = await uploadVideoDataset({
           dataset_name: values.datasetName.trim(),
-          annotation_backend: "cvat",
+          annotation_backend: "native",
           metadata: videoRows.map(({ key: _key, ...row }) => ({
             ...row,
             patient_uid: row.patient_uid.trim(),
@@ -389,15 +379,15 @@ export function UploadPage() {
         <Card title="创建视频标注任务" className="panel-card">
           <Space direction="vertical" size={16} style={{ width: "100%" }}>
             <Alert
-              type={cvatHealth?.reachable && cvatHealth.authenticated ? "success" : "warning"}
+              type="success"
               showIcon
-              message={cvatHealth?.reachable && cvatHealth.authenticated ? "标注工具：CVAT" : "CVAT 当前不可用"}
-              description={cvatHealth?.error || "视频任务将在 CVAT 中完成完整视频浏览、关键帧标记、B-line 区域标注和问题复核。"}
+              message="标注工具：平台原生视频工作台"
+              description="新视频任务将在平台同域页面内完成短视频加载、目标创建、点提示和 Mask 叠加，不再创建或跳转 CVAT。"
             />
             <Typography.Text>数据类型：视频</Typography.Text>
             <Typography.Text>任务类型：B-line 视频分割</Typography.Text>
             <Typography.Text>标签名称：B-line</Typography.Text>
-            <Typography.Text type="secondary">输出：关键帧图像与 0/1 mask</Typography.Text>
+            <Typography.Text type="secondary">输出：当前帧 Mask、目标映射和后续 MedSAM2 接口兼容结果</Typography.Text>
             <Form.Item
               label="任务名称"
               name="taskName"

@@ -252,6 +252,65 @@ a {
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
 }
 
+.native-workbench-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+  align-items: start;
+}
+
+.native-video-card {
+  min-width: 0;
+}
+
+.native-video-stage {
+  position: relative;
+  width: 100%;
+  background: #050505;
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+}
+
+.native-video-element,
+.native-mask-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.native-video-element {
+  object-fit: contain;
+}
+
+.native-mask-overlay {
+  cursor: crosshair;
+  z-index: 2;
+}
+
+.native-positive-point {
+  position: absolute;
+  z-index: 3;
+  width: 14px;
+  height: 14px;
+  border: 3px solid #14b8a6;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.native-object-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: -1px;
+}
+
 .task-list-card .ant-table-wrapper {
   overflow-x: auto;
 }
@@ -274,6 +333,10 @@ a {
   }
 
   .model-console-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .native-workbench-grid {
     grid-template-columns: 1fr;
   }
 }

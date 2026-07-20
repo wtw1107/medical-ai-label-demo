@@ -321,9 +321,9 @@ class VideoStorageService:
     ) -> VideoDatasetUploadResponse:
         if not files:
             raise HTTPException(status_code=400, detail="At least one video file is required.")
-        normalized_backend = (annotation_backend or "label_studio").strip()
-        if normalized_backend not in {"cvat", "label_studio"}:
-            raise HTTPException(status_code=400, detail="annotation_backend must be cvat or label_studio.")
+        normalized_backend = (annotation_backend or "native").strip()
+        if normalized_backend not in {"native", "cvat", "label_studio"}:
+            raise HTTPException(status_code=400, detail="annotation_backend must be native, cvat, or label_studio.")
         metadata_items = video_metadata or _build_legacy_metadata(
             files=files,
             patient_uid=patient_uid,

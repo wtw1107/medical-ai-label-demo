@@ -30,7 +30,7 @@ export interface UploadVideoDatasetPayload {
   depth?: string;
   orientation?: string;
   deid_status?: string;
-  annotation_backend?: "cvat" | "label_studio";
+  annotation_backend?: "native" | "cvat" | "label_studio";
   metadata?: VideoUploadMetadata[];
   files: File[];
 }
